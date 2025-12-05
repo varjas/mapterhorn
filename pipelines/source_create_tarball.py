@@ -12,7 +12,8 @@ def main():
     else:
         print('Not enough arguments. Usage: source_create_tarball.py {{source}}')
         exit()
-    
+
+    utils.create_folder('tar-store/')
     checksum = None
     with open(f'tar-store/{source}.tar', 'wb') as f:
         writer = utils.HashWriter(f)
