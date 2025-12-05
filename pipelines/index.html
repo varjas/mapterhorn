@@ -24,31 +24,56 @@
     <div id="map"></div>
     <script type="text/javascript">
 
-        const protocol = new pmtiles.Protocol({ metadata: true, errorOnMissingTile: true });
+        const indexPMTiles = new pmtiles.PMTiles('index.pmtiles');
+        const pmtilesCache = new Map();
 
         maplibregl.addProtocol('mapterhorn', async (params, abortController) => {
-            const parts = params.url.replace('mapterhorn://', '').split('/');
-            const x = parseInt(parts[1]);
-            const y = parseInt(parts[2]);
-            const z = parseInt(parts[0]);
-            const p = new pmtiles.PMTiles('index.pmtiles');
-            const indexTile = await p.getZxy(z, x, y);
-            if (indexTile === undefined) {
-                 throw new Error(`tile ${z}/${x}/${y} not found`);
+            try {
+                const [z, x, y] = params.url.replace('mapterhorn://', '').split('/').map(Number);
+                console.log(`Requesting tile: ${z}/${x}/${y}`);
+
+                // Get filename from index
+                const indexTile = await indexPMTiles.getZxy(z, x, y);
+                if (indexTile === undefined) {
+                    console.warn(`Tile ${z}/${x}/${y} not found in index`);
+                    throw new Error(`Tile ${z}/${x}/${y} not found in index`);
+                }
+
+                const decoder = new TextDecoder('utf-8');
+                const filename = decoder.decode(indexTile.data);
+                console.log(`Tile ${z}/${x}/${y} -> "${filename}" (${indexTile.data.byteLength} bytes)`);
+
+                // Get or create PMTiles reader for this file
+                if (!pmtilesCache.has(filename)) {
+                    console.log(`  Creating PMTiles reader for ${filename}`);
+                    pmtilesCache.set(filename, new pmtiles.PMTiles(filename));
+                }
+                const pmtilesFile = pmtilesCache.get(filename);
+
+                // Get the tile data directly
+                const tileData = await pmtilesFile.getZxy(z, x, y);
+                if (!tileData || !tileData.data) {
+                    console.warn(`Tile ${z}/${x}/${y} not found in ${filename}`);
+                    throw new Error(`Tile ${z}/${x}/${y} not found`);
+                }
+
+                console.log(`✓ Loaded tile ${z}/${x}/${y} (${tileData.data.byteLength} bytes)`);
+
+                // Return WebP image data
+                return {
+                    data: tileData.data
+                };
+            } catch (error) {
+                console.error('Error loading tile:', error);
+                throw error;
             }
-            const decoder = new TextDecoder('utf-8')
-            const filename = decoder.decode(indexTile.data);
-            console.log({params, filename})
-            const url = `pmtiles://${filename}/${z}/${x}/${y}.webp`;
-            const newParams = { ...params, url };
-            return await protocol.tile(newParams, abortController);
         });
 
         const map = new maplibregl.Map({
             container: 'map',
             hash: 'map',
-            zoom: 10.5,
-            center: [9.0788, 47.1194],
+            zoom: 11,  // Zoom 10-11 has the most data
+            center: [15.9961, 46.9201],  // Center of tile 10/557/360
             style: {
                 version: 8,
                 sources: {
@@ -87,7 +112,19 @@
         }
         map.addControl(new LogoControl(), 'bottom-left');
 
-        // map.showTileBoundaries = true;
+        map.showTileBoundaries = true;
+
+        // Log map errors
+        map.on('error', (e) => {
+            console.error('Map error:', e);
+        });
+
+        // Log source errors
+        map.on('sourcedata', (e) => {
+            if (e.sourceId === 'hillshadeSource' && e.isSourceLoaded) {
+                console.log('Hillshade source loaded');
+            }
+        });
     </script>
 </body>
 
