@@ -84,27 +84,28 @@
         const urlParams = new URLSearchParams(window.location.search);
         const style = urlParams.get('style') || 'rgb';  // Default to RGB
 
-        // Define paint properties based on style
-        let hillshadePaint = {};
-        if (style === 'bw') {
-            // BW hillshade with multidirectional lighting
-            hillshadePaint = {
-                'hillshade-method': 'multidirectional',
-                'hillshade-highlight-color': ['#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF'],
-                'hillshade-shadow-color': ['#000000', '#000000', '#000000', '#000000'],
-                'hillshade-illumination-direction': [270, 315, 0, 45],
-                'hillshade-illumination-altitude': [30, 30, 30, 30],
-            };
-        } else {
-            // RGB multidirectional hillshade
-            hillshadePaint = {
-                'hillshade-method': 'multidirectional',
-                'hillshade-highlight-color': ['#FF4000', '#FFFF00', '#40FF00', '#00FF80'],
-                'hillshade-shadow-color': ['#00BFFF', '#0000FF', '#BF00FF', '#FF0080'],
-                'hillshade-illumination-direction': [270, 315, 0, 45],
-                'hillshade-illumination-altitude': [30, 30, 30, 30],
-            };
-        }
+        // Style configurations
+        const STYLE_CONFIGS = {
+            bw: {
+                highlightColor: ['#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF'],
+                shadowColor: ['#000000', '#000000', '#000000', '#000000']
+            },
+            rgb: {
+                highlightColor: ['#FF4000', '#FFFF00', '#40FF00', '#00FF80'],
+                shadowColor: ['#00BFFF', '#0000FF', '#BF00FF', '#FF0080']
+            }
+        };
+
+        // Helper function to get paint properties for a style
+        const getHillshadePaint = (styleName) => ({
+            'hillshade-method': 'multidirectional',
+            'hillshade-highlight-color': STYLE_CONFIGS[styleName].highlightColor,
+            'hillshade-shadow-color': STYLE_CONFIGS[styleName].shadowColor,
+            'hillshade-illumination-direction': [270, 315, 0, 45],
+            'hillshade-illumination-altitude': [30, 30, 30, 30]
+        });
+
+        const hillshadePaint = getHillshadePaint(style);
 
         const map = new maplibregl.Map({
             container: 'map',
@@ -185,21 +186,11 @@
                 const newUrl = window.location.pathname + '?' + urlParams.toString() + window.location.hash;
                 window.history.pushState({}, '', newUrl);
 
-                // Update map paint properties
-                if (this._currentStyle === 'bw') {
-                    // Use bw colors with multidirectional to avoid interpolation errors
-                    this._map.setPaintProperty('hillshade', 'hillshade-method', 'multidirectional');
-                    this._map.setPaintProperty('hillshade', 'hillshade-highlight-color', ['#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF']);
-                    this._map.setPaintProperty('hillshade', 'hillshade-shadow-color', ['#000000', '#000000', '#000000', '#000000']);
-                    this._map.setPaintProperty('hillshade', 'hillshade-illumination-direction', [270, 315, 0, 45]);
-                    this._map.setPaintProperty('hillshade', 'hillshade-illumination-altitude', [30, 30, 30, 30]);
-                } else {
-                    this._map.setPaintProperty('hillshade', 'hillshade-method', 'multidirectional');
-                    this._map.setPaintProperty('hillshade', 'hillshade-highlight-color', ['#FF4000', '#FFFF00', '#40FF00', '#00FF80']);
-                    this._map.setPaintProperty('hillshade', 'hillshade-shadow-color', ['#00BFFF', '#0000FF', '#BF00FF', '#FF0080']);
-                    this._map.setPaintProperty('hillshade', 'hillshade-illumination-direction', [270, 315, 0, 45]);
-                    this._map.setPaintProperty('hillshade', 'hillshade-illumination-altitude', [30, 30, 30, 30]);
-                }
+                // Apply new style paint properties
+                const paintProps = getHillshadePaint(this._currentStyle);
+                Object.entries(paintProps).forEach(([key, value]) => {
+                    this._map.setPaintProperty('hillshade', key, value);
+                });
 
                 // Force map to re-render with new paint properties
                 this._map.triggerRepaint();
