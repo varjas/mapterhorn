@@ -17,6 +17,17 @@
             height: 100%;
             width: 100%;
         }
+
+        .style-toggle-btn {
+            background: white;
+            font-size: 12px;
+            font-weight: 500;
+            border-radius: 0px;
+        }
+
+        .style-toggle-btn:hover {
+            background: #f8f8f8;
+        }
     </style>
 </head>
 
@@ -75,9 +86,15 @@
 
         // Define paint properties based on style
         let hillshadePaint = {};
-        if (style === 'greyscale') {
-            // Basic greyscale hillshade (default MapLibre style)
-            hillshadePaint = {};
+        if (style === 'bw') {
+            // BW hillshade with multidirectional lighting
+            hillshadePaint = {
+                'hillshade-method': 'multidirectional',
+                'hillshade-highlight-color': ['#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF'],
+                'hillshade-shadow-color': ['#000000', '#000000', '#000000', '#000000'],
+                'hillshade-illumination-direction': [270, 315, 0, 45],
+                'hillshade-illumination-altitude': [30, 30, 30, 30],
+            };
         } else {
             // RGB multidirectional hillshade
             hillshadePaint = {
@@ -132,6 +149,71 @@
             }
         }
         map.addControl(new LogoControl(), 'bottom-left');
+
+        class StyleToggleControl {
+            constructor() {
+                this._currentStyle = style;
+            }
+            onAdd(map) {
+                this._map = map;
+                this._container = document.createElement('div');
+                this._container.className = 'maplibregl-ctrl maplibregl-ctrl-group';
+
+                this._button = document.createElement('button');
+                this._button.className = 'style-toggle-btn';
+                this._updateButtonText();
+
+                this._button.addEventListener('click', () => {
+                    this._toggleStyle();
+                });
+
+                this._container.appendChild(this._button);
+                return this._container;
+            }
+
+            _updateButtonText() {
+                this._button.textContent = this._currentStyle === 'rgb' ? 'RGB' : 'BW';
+            }
+
+            _toggleStyle() {
+                // Toggle between styles
+                this._currentStyle = this._currentStyle === 'rgb' ? 'bw' : 'rgb';
+
+                // Update URL - preserve hash from MapLibre
+                const urlParams = new URLSearchParams(window.location.search);
+                urlParams.set('style', this._currentStyle);
+                const newUrl = window.location.pathname + '?' + urlParams.toString() + window.location.hash;
+                window.history.pushState({}, '', newUrl);
+
+                // Update map paint properties
+                if (this._currentStyle === 'bw') {
+                    // Use bw colors with multidirectional to avoid interpolation errors
+                    this._map.setPaintProperty('hillshade', 'hillshade-method', 'multidirectional');
+                    this._map.setPaintProperty('hillshade', 'hillshade-highlight-color', ['#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF']);
+                    this._map.setPaintProperty('hillshade', 'hillshade-shadow-color', ['#000000', '#000000', '#000000', '#000000']);
+                    this._map.setPaintProperty('hillshade', 'hillshade-illumination-direction', [270, 315, 0, 45]);
+                    this._map.setPaintProperty('hillshade', 'hillshade-illumination-altitude', [30, 30, 30, 30]);
+                } else {
+                    this._map.setPaintProperty('hillshade', 'hillshade-method', 'multidirectional');
+                    this._map.setPaintProperty('hillshade', 'hillshade-highlight-color', ['#FF4000', '#FFFF00', '#40FF00', '#00FF80']);
+                    this._map.setPaintProperty('hillshade', 'hillshade-shadow-color', ['#00BFFF', '#0000FF', '#BF00FF', '#FF0080']);
+                    this._map.setPaintProperty('hillshade', 'hillshade-illumination-direction', [270, 315, 0, 45]);
+                    this._map.setPaintProperty('hillshade', 'hillshade-illumination-altitude', [30, 30, 30, 30]);
+                }
+
+                // Force map to re-render with new paint properties
+                this._map.triggerRepaint();
+
+                // Update button text
+                this._updateButtonText();
+            }
+
+            onRemove() {
+                this._container.parentNode.removeChild(this._container);
+                this._map = undefined;
+            }
+        }
+        map.addControl(new StyleToggleControl(), 'bottom-right');
 
         map.showTileBoundaries = true;
 
