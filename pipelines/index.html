@@ -69,6 +69,26 @@
             }
         });
 
+        // Parse query parameters for style selection
+        const urlParams = new URLSearchParams(window.location.search);
+        const style = urlParams.get('style') || 'rgb';  // Default to RGB
+
+        // Define paint properties based on style
+        let hillshadePaint = {};
+        if (style === 'greyscale') {
+            // Basic greyscale hillshade (default MapLibre style)
+            hillshadePaint = {};
+        } else {
+            // RGB multidirectional hillshade
+            hillshadePaint = {
+                'hillshade-method': 'multidirectional',
+                'hillshade-highlight-color': ['#FF4000', '#FFFF00', '#40FF00', '#00FF80'],
+                'hillshade-shadow-color': ['#00BFFF', '#0000FF', '#BF00FF', '#FF0080'],
+                'hillshade-illumination-direction': [270, 315, 0, 45],
+                'hillshade-illumination-altitude': [30, 30, 30, 30],
+            };
+        }
+
         const map = new maplibregl.Map({
             container: 'map',
             hash: 'map',
@@ -90,6 +110,7 @@
                         id: 'hillshade',
                         type: 'hillshade',
                         source: 'hillshadeSource',
+                        paint: hillshadePaint
                     },
                 ],
             },
