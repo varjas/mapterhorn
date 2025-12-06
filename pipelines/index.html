@@ -151,6 +151,14 @@
         console.log('Setting up map load handler...');
         map.on('load', async () => {
             console.log('Map load event fired!');
+
+            // Only auto-zoom if there's no existing location in the URL hash
+            const hasLocationHash = window.location.hash && window.location.hash.includes('map=');
+            if (hasLocationHash) {
+                console.log('Location already set via URL hash, skipping auto-zoom');
+                return;
+            }
+
             try {
                 const header = await indexPMTiles.getHeader();
                 console.log('Index header:', header);
