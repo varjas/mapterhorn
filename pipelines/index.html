@@ -38,6 +38,8 @@
         const indexPMTiles = new pmtiles.PMTiles('index.pmtiles');
         const pmtilesCache = new Map();
 
+        console.log('Starting to load index.pmtiles metadata...');
+
         maplibregl.addProtocol('mapterhorn', async (params, abortController) => {
             try {
                 const [z, x, y] = params.url.replace('mapterhorn://', '').split('/').map(Number);
@@ -110,8 +112,8 @@
         const map = new maplibregl.Map({
             container: 'map',
             hash: 'map',
-            zoom: 11,  // Zoom 10-11 has the most data
-            center: [15.9961, 46.9201],  // Center of tile 10/557/360
+            zoom: 4,
+            center: [0, 0],  // Will be updated from metadata
             style: {
                 version: 8,
                 sources: {
@@ -132,6 +134,50 @@
                     },
                 ],
             },
+        });
+
+        // Read header to get bounds information
+        console.log('About to read header...');
+        indexPMTiles.getHeader().then(header => {
+            console.log('Index header (raw):', header);
+            console.log('Header minLon:', header.minLon, 'minLat:', header.minLat);
+            console.log('Header maxLon:', header.maxLon, 'maxLat:', header.maxLat);
+            console.log('Header centerLon:', header.centerLon, 'centerLat:', header.centerLat, 'centerZoom:', header.centerZoom);
+        }).catch(error => {
+            console.error('Failed to read header immediately:', error);
+        });
+
+        // Wait for map to load, then read header and fit to bounds
+        console.log('Setting up map load handler...');
+        map.on('load', async () => {
+            console.log('Map load event fired!');
+            try {
+                const header = await indexPMTiles.getHeader();
+                console.log('Index header:', header);
+
+                // PMTiles header includes bounds
+                if (header.minLon !== undefined && header.maxLon !== undefined) {
+                    const bounds = [header.minLon, header.minLat, header.maxLon, header.maxLat];
+                    console.log('Fitting map to bounds:', bounds);
+
+                    // Format: [[west, south], [east, north]]
+                    map.fitBounds([
+                        [bounds[0], bounds[1]],  // southwest
+                        [bounds[2], bounds[3]]   // northeast
+                    ], {
+                        padding: 20
+                    });
+                } else if (header.centerLon !== undefined && header.centerLat !== undefined) {
+                    // Fallback to center if available
+                    console.log('Setting map to center:', header.centerLon, header.centerLat, 'zoom:', header.centerZoom);
+                    map.setCenter([header.centerLon, header.centerLat]);
+                    if (header.centerZoom) map.setZoom(header.centerZoom);
+                } else {
+                    console.warn('No bounds or center found in header');
+                }
+            } catch (error) {
+                console.error('Failed to read index header:', error);
+            }
         });
 
         class LogoControl {
