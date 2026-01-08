@@ -28,6 +28,38 @@
         .style-toggle-btn:hover {
             background: #f8f8f8;
         }
+
+        .nav-btn {
+            background: white;
+            font-size: 16px;
+            font-weight: 700;
+            border: none;
+            cursor: pointer;
+            padding: 8px 12px;
+            border-radius: 0px;
+        }
+
+        .nav-btn:hover:not(:disabled) {
+            background: #f0f0f0;
+        }
+
+        .nav-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .nav-info {
+            background: white;
+            padding: 4px 12px;
+            font-size: 11px;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        .nav-info.empty {
+            color: #999;
+            background: #f5f5f5;
+        }
     </style>
 </head>
 
@@ -37,6 +69,7 @@
 
         const indexPMTiles = new pmtiles.PMTiles('index.pmtiles');
         const pmtilesCache = new Map();
+        const tilesMetadata = []; // Array to store {filename, centerLon, centerLat, centerZoom, isEmpty}
 
         console.log('Starting to load index.pmtiles metadata...');
 
@@ -58,8 +91,52 @@
 
                 // Get or create PMTiles reader for this file
                 if (!pmtilesCache.has(filename)) {
-                    console.log(`  Creating PMTiles reader for ${filename}`);
-                    pmtilesCache.set(filename, new pmtiles.PMTiles(filename));
+                    console.log(`  Creating PMTiles reader for ${filename} at zoom level ${z}`);
+                    const pmtilesFile = new pmtiles.PMTiles(filename);
+                    pmtilesCache.set(filename, pmtilesFile);
+
+                    // Fetch metadata for navigation - track all tiles
+                    pmtilesFile.getHeader().then(async header => {
+                        if (header.centerLon !== undefined && header.centerLat !== undefined) {
+                            // Check if this file is already in our navigation list
+                            const alreadyTracked = tilesMetadata.some(t => t.filename === filename);
+                            if (!alreadyTracked) {
+                                // Check if tile has actual data by testing if tiles exist at higher zoom levels
+                                let isEmpty = false;
+                                try {
+                                    // Sample a tile at a higher zoom level to see if there's actual data
+                                    const testZoom = Math.max(10, header.maxZoom || 10);
+                                    const centerZ = testZoom;
+                                    const centerX = Math.floor((header.centerLon + 180) / 360 * Math.pow(2, centerZ));
+                                    const centerY = Math.floor((1 - Math.log(Math.tan(header.centerLat * Math.PI / 180) + 1 / Math.cos(header.centerLat * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, centerZ));
+
+                                    const testTile = await pmtilesFile.getZxy(centerZ, centerX, centerY);
+                                    isEmpty = !testTile || !testTile.data;
+
+                                    console.log(`  Testing ${filename} at ${centerZ}/${centerX}/${centerY}: ${isEmpty ? 'EMPTY' : 'HAS DATA'}`);
+                                } catch (err) {
+                                    console.log(`  Could not test ${filename}, assuming not empty`);
+                                    isEmpty = false;
+                                }
+
+                                tilesMetadata.push({
+                                    filename: filename,
+                                    centerLon: header.centerLon,
+                                    centerLat: header.centerLat,
+                                    centerZoom: header.centerZoom || 10,
+                                    isEmpty: isEmpty
+                                });
+                                console.log(`  ✓ Added to navigation: ${filename} (${header.centerLon}, ${header.centerLat}) ${isEmpty ? '[EMPTY]' : ''}`);
+
+                                // Notify navigation control if it exists
+                                if (window.navigationControl) {
+                                    window.navigationControl.updateTileCount();
+                                }
+                            }
+                        }
+                    }).catch(err => {
+                        console.error(`Failed to get header for ${filename}:`, err);
+                    });
                 }
                 const pmtilesFile = pmtilesCache.get(filename);
 
@@ -84,7 +161,7 @@
 
         // Parse query parameters for style selection
         const urlParams = new URLSearchParams(window.location.search);
-        const style = urlParams.get('style') || 'rgb';  // Default to RGB
+        const style = urlParams.get('style') || 'bw';
 
         // Style configurations
         const STYLE_CONFIGS = {
@@ -108,6 +185,9 @@
         });
 
         const hillshadePaint = getHillshadePaint(style);
+
+        // Check for user-provided location BEFORE initializing the map
+        const hasUserProvidedLocation = window.location.hash && window.location.hash.includes('map=');
 
         const map = new maplibregl.Map({
             container: 'map',
@@ -153,8 +233,7 @@
             console.log('Map load event fired!');
 
             // Only auto-zoom if there's no existing location in the URL hash
-            const hasLocationHash = window.location.hash && window.location.hash.includes('map=');
-            if (hasLocationHash) {
+            if (hasUserProvidedLocation) {
                 console.log('Location already set via URL hash, skipping auto-zoom');
                 return;
             }
@@ -259,6 +338,103 @@
             }
         }
         map.addControl(new StyleToggleControl(), 'bottom-right');
+
+        class TileNavigationControl {
+            constructor() {
+                this._currentIndex = 0;
+            }
+
+            onAdd(map) {
+                this._map = map;
+                this._container = document.createElement('div');
+                this._container.className = 'maplibregl-ctrl maplibregl-ctrl-group';
+                this._container.style.display = 'flex';
+                this._container.style.flexDirection = 'column';
+
+                // Navigation buttons row
+                const navRow = document.createElement('div');
+                navRow.style.display = 'flex';
+
+                this._prevBtn = document.createElement('button');
+                this._prevBtn.className = 'nav-btn';
+                this._prevBtn.innerHTML = '◀';
+                this._prevBtn.title = 'Previous tile';
+                this._prevBtn.addEventListener('click', () => this._navigate(-1));
+
+                this._nextBtn = document.createElement('button');
+                this._nextBtn.className = 'nav-btn';
+                this._nextBtn.innerHTML = '▶';
+                this._nextBtn.title = 'Next tile';
+                this._nextBtn.addEventListener('click', () => this._navigate(1));
+
+                navRow.appendChild(this._prevBtn);
+                navRow.appendChild(this._nextBtn);
+                this._container.appendChild(navRow);
+
+                // Info display
+                this._info = document.createElement('div');
+                this._info.className = 'nav-info';
+                this._container.appendChild(this._info);
+
+                this._updateUI();
+
+                return this._container;
+            }
+
+            _navigate(direction) {
+                if (tilesMetadata.length === 0) return;
+
+                this._currentIndex = (this._currentIndex + direction + tilesMetadata.length) % tilesMetadata.length;
+                const tile = tilesMetadata[this._currentIndex];
+
+                console.log(`Navigating to tile ${this._currentIndex + 1}/${tilesMetadata.length}: ${tile.filename}`);
+
+                this._map.flyTo({
+                    center: [tile.centerLon, tile.centerLat],
+                    zoom: tile.centerZoom,
+                    duration: 1000
+                });
+
+                this._updateUI();
+            }
+
+            updateTileCount() {
+                this._updateUI();
+            }
+
+            _updateUI() {
+                const count = tilesMetadata.length;
+
+                if (count === 0) {
+                    this._info.textContent = 'No tiles loaded';
+                    this._info.classList.remove('empty');
+                    this._prevBtn.disabled = true;
+                    this._nextBtn.disabled = true;
+                } else {
+                    const tile = tilesMetadata[this._currentIndex];
+                    const emptyLabel = tile.isEmpty ? ' [empty]' : '';
+                    this._info.textContent = `Tile ${this._currentIndex + 1}/${count}: ${tile.filename}${emptyLabel}`;
+
+                    // Apply empty styling if this tile is empty
+                    if (tile.isEmpty) {
+                        this._info.classList.add('empty');
+                    } else {
+                        this._info.classList.remove('empty');
+                    }
+
+                    this._prevBtn.disabled = false;
+                    this._nextBtn.disabled = false;
+                }
+            }
+
+            onRemove() {
+                this._container.parentNode.removeChild(this._container);
+                this._map = undefined;
+            }
+        }
+
+        window.navigationControl = new TileNavigationControl();
+        map.addControl(window.navigationControl, 'top-right');
 
         map.showTileBoundaries = true;
 
