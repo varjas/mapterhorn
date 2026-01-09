@@ -60,6 +60,17 @@
             color: #999;
             background: #f5f5f5;
         }
+
+        .coverage-toggle-btn {
+            background: white;
+            font-size: 12px;
+            font-weight: 500;
+            border-radius: 0px;
+        }
+
+        .coverage-toggle-btn:hover {
+            background: #f8f8f8;
+        }
     </style>
 </head>
 
@@ -204,6 +215,10 @@
                         tileSize: 512,
                         attribution: '<a href="https://github.com/mapterhorn/mapterhorn">© Mapterhorn</a>'
                     },
+                    tileCoverage: {
+                        type: 'geojson',
+                        data: 'tile-coverage.geojson'
+                    }
                 },
                 layers: [
                     {
@@ -212,6 +227,30 @@
                         source: 'hillshadeSource',
                         paint: hillshadePaint
                     },
+                    {
+                        id: 'tile-coverage-fill',
+                        type: 'fill',
+                        source: 'tileCoverage',
+                        layout: {
+                            'visibility': 'none'
+                        },
+                        paint: {
+                            'fill-color': '#088',
+                            'fill-opacity': 0.3
+                        }
+                    },
+                    {
+                        id: 'tile-coverage-outline',
+                        type: 'line',
+                        source: 'tileCoverage',
+                        layout: {
+                            'visibility': 'visible'
+                        },
+                        paint: {
+                            'line-color': '#088',
+                            'line-width': 1
+                        }
+                    }
                 ],
             },
         });
@@ -338,6 +377,63 @@
             }
         }
         map.addControl(new StyleToggleControl(), 'bottom-right');
+
+        class CoverageToggleControl {
+            constructor() {
+                this._modes = ['outline', 'fill', 'none'];
+                this._currentMode = 'outline';
+            }
+            onAdd(map) {
+                this._map = map;
+                this._container = document.createElement('div');
+                this._container.className = 'maplibregl-ctrl maplibregl-ctrl-group';
+
+                this._button = document.createElement('button');
+                this._button.className = 'coverage-toggle-btn';
+                this._updateButtonText();
+
+                this._button.addEventListener('click', () => {
+                    this._toggleCoverage();
+                });
+
+                this._container.appendChild(this._button);
+                return this._container;
+            }
+
+            _updateButtonText() {
+                const labels = {
+                    'outline': 'LINE',
+                    'fill': 'FILL',
+                    'none': 'OFF'
+                };
+                this._button.textContent = labels[this._currentMode];
+            }
+
+            _toggleCoverage() {
+                const currentIndex = this._modes.indexOf(this._currentMode);
+                const nextIndex = (currentIndex + 1) % this._modes.length;
+                this._currentMode = this._modes[nextIndex];
+
+                if (this._currentMode === 'none') {
+                    this._map.setLayoutProperty('tile-coverage-fill', 'visibility', 'none');
+                    this._map.setLayoutProperty('tile-coverage-outline', 'visibility', 'none');
+                } else if (this._currentMode === 'fill') {
+                    this._map.setLayoutProperty('tile-coverage-fill', 'visibility', 'visible');
+                    this._map.setLayoutProperty('tile-coverage-outline', 'visibility', 'visible');
+                } else if (this._currentMode === 'outline') {
+                    this._map.setLayoutProperty('tile-coverage-fill', 'visibility', 'none');
+                    this._map.setLayoutProperty('tile-coverage-outline', 'visibility', 'visible');
+                }
+
+                this._updateButtonText();
+            }
+
+            onRemove() {
+                this._container.parentNode.removeChild(this._container);
+                this._map = undefined;
+            }
+        }
+        map.addControl(new CoverageToggleControl(), 'bottom-right');
 
         class TileNavigationControl {
             constructor() {
