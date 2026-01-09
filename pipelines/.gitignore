@@ -10,3 +10,4 @@ planetiler.jar
 index.md
 index.pmtiles
 data
+.pipeline_state.db
