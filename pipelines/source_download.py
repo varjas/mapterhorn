@@ -1,6 +1,27 @@
 import os
 import utils
 import sys
+from pathlib import Path
+import requests
+from urllib.parse import urlparse
+
+
+def download_file(url, filepath):
+    """
+    Download a file using requests library.
+    """
+    head_response = requests.head(url, allow_redirects=True, timeout=30)
+    head_response.raise_for_status()
+
+    response = requests.get(url, stream=True, timeout=60)
+    response.raise_for_status()
+
+    downloaded_size = 0
+    with open(filepath, "wb") as f:
+        for chunk in response.iter_content(chunk_size=8192):
+            if chunk:
+                f.write(chunk)
+                downloaded_size += len(chunk)
 
 
 def download_from_internet(source):
@@ -23,14 +44,17 @@ def download_from_internet(source):
     if not urls:
         raise ValueError(f"No URLs found in file_list.txt for source '{source}'")
 
-    j = 0
-    for url in urls:
-        j += 1
-        if j % 100 == 0:
-            print(f"downloaded {j} / {len(urls)}")
+    total_urls = len(urls)
+    print(f"Found {total_urls} file(s) to download\n")
 
-        command = f'cd source-store/{source} && wget --no-verbose --continue "{url}"'
-        utils.run_command(command, silent=False)
+    source_dir = Path(f"source-store/{source}")
+
+    for index, url in enumerate(urls, 1):
+        print(f"[{index}/{total_urls}] {url}")
+        filename = Path(urlparse(url).path).name
+        filepath = source_dir / filename
+
+        download_file(url, filepath)
 
 
 def main():
