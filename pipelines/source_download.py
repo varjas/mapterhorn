@@ -1,10 +1,16 @@
+import os
 import utils
 import sys
 
 
 def download_from_internet(source):
+    file_list_path = f'../source-catalog/{source}/file_list.txt'
+
+    if not os.path.exists(file_list_path):
+        raise FileNotFoundError(f"File list not found: {file_list_path}")
+
     urls = []
-    with open(f"../source-catalog/{source}/file_list.txt") as f:
+    with open(file_list_path) as f:
         urls = [l.strip() for l in f.readlines()]
     j = 0
     for url in urls:
