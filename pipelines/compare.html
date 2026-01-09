@@ -54,7 +54,7 @@
 
 <body>
     <div class="map-container">
-        <div class="map-label">Live (mapterhorn.com)</div>
+        <div class="map-label">Live</div>
         <div id="map-live" class="map"></div>
     </div>
     <div class="map-container">
@@ -110,6 +110,8 @@
         const urlParams = new URLSearchParams(window.location.search);
         const style = urlParams.get('style') || 'bw';
 
+        const LOCAL_MAP_BACKGROUND = '#607D8B';
+
         const STYLE_CONFIGS = {
             bw: {
                 highlightColor: ['#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF'],
@@ -126,7 +128,9 @@
             'hillshade-highlight-color': STYLE_CONFIGS[styleName].highlightColor,
             'hillshade-shadow-color': STYLE_CONFIGS[styleName].shadowColor,
             'hillshade-illumination-direction': [270, 315, 0, 45],
-            'hillshade-illumination-altitude': [30, 30, 30, 30]
+            'hillshade-illumination-altitude': [30, 30, 30, 30],
+            'hillshade-exaggeration': 1,
+            'hillshade-accent-color': '#FFFFFF'
         });
 
         const hillshadePaint = getHillshadePaint(style);
@@ -176,6 +180,13 @@
                     },
                 },
                 layers: [
+                    {
+                        id: 'background',
+                        type: 'background',
+                        paint: {
+                            'background-color': '#FFFFFF'
+                        }
+                    },
                     {
                         id: 'hillshade',
                         type: 'hillshade',
