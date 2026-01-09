@@ -10,8 +10,15 @@ def download_from_internet(source):
         raise FileNotFoundError(f"File list not found: {file_list_path}")
 
     urls = []
-    with open(file_list_path) as f:
-        urls = [l.strip() for l in f.readlines()]
+    with open(file_list_path) as file:
+        for line in file.readlines():
+            url_string = line.strip()
+
+            # Skip commented lines
+            if url_string.startswith("#"):
+                continue
+
+            urls.append(url_string)
 
     if not urls:
         raise ValueError(f"No URLs found in file_list.txt for source '{source}'")
