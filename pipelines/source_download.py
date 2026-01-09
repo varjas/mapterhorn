@@ -1,30 +1,39 @@
 import utils
 import sys
 
+
 def download_from_internet(source):
     urls = []
-    with open(f'../source-catalog/{source}/file_list.txt') as f:
+    with open(f"../source-catalog/{source}/file_list.txt") as f:
         urls = [l.strip() for l in f.readlines()]
     j = 0
     for url in urls:
         j += 1
         if j % 100 == 0:
-            print(f'downloaded {j} / {len(urls)}')
+            print(f"downloaded {j} / {len(urls)}")
 
         command = f'cd source-store/{source} && wget --no-verbose --continue "{url}"'
         utils.run_command(command, silent=False)
 
+
 def main():
-    source = None
-    if len(sys.argv) > 1:
-        source = sys.argv[1]
-        print(f'downloading {source}...')
-    else:
-        print('source argument missing...')
-        exit()
+    if len(sys.argv) < 2:
+        print("ERROR: source argument missing")
+        print("Usage: uv run python source_download.py <source_name>")
+        sys.exit(1)
 
-    utils.create_folder( f'source-store/{source}/')
-    download_from_internet(source)
+    source = sys.argv[1]
+    print(f"Downloading {source}...\n")
 
-if __name__ == '__main__':
+    utils.create_folder(f"source-store/{source}/")
+
+    try:
+        download_from_internet(source)
+        print(f"\n✓ SUCCESS: All files for '{source}' downloaded successfully")
+    except Exception as e:
+        print(f"\n✗ FAILED: {str(e)}")
+        sys.exit(1)
+
+
+if __name__ == "__main__":
     main()
