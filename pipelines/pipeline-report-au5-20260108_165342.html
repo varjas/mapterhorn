@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Pipeline Report: au5</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 0 20px;
+            background: #f5f5f5;
+        }
+        h1 { color: #333; }
+        .summary {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            margin: 20px 0;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        th {
+            background: #4CAF50;
+            color: white;
+            font-weight: 600;
+        }
+        .metric { color: #666; }
+        .value { font-weight: 600; color: #333; }
+        .completed { color: #4CAF50; }
+        .pending { color: #999; }
+        .viewer-link {
+            display: inline-block;
+            background: #2196F3;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 4px;
+            text-decoration: none;
+            margin: 10px 0;
+        }
+        .viewer-link:hover { background: #1976D2; }
+    </style>
+</head>
+<body>
+    <h1>Pipeline Report: au5</h1>
+    <div class="summary">
+        <p><strong>Generated:</strong> 2026-01-08 16:53:42</p>
+        <p><strong>Completed Stages:</strong> source_prep, aggregation, downsampling, index</p>
+
+        <p><strong>Coverage Bounds:</strong></p>
+        <ul>
+            <li>Longitude: 149.4793 to 153.6566</li>
+            <li>Latitude: -40.2364 to -22.5156</li>
+            <li>Center: -31.3760, 151.5679</li>
+        </ul>
+        <a href="index.html#12/-31.375984/151.567910" class="viewer-link">
+            Open Viewer at Data Location
+        </a>
+
+    </div>
+    <h2>Stage Metrics</h2>
+    <table>
+        <tr>
+            <th>Stage</th>
+            <th>Status</th>
+            <th>Duration</th>
+            <th>Key Metrics</th>
+        </tr>
+
+        <tr>
+            <td>Source Prep</td>
+            <td class="completed">✓ Completed</td>
+            <td>2874.0s</td>
+            <td>126 files, 4788.5 MB</td>
+        </tr>
+
+        <tr>
+            <td>Aggregation</td>
+            <td class="completed">✓ Completed</td>
+            <td>657.6s</td>
+            <td>0 tiles, 1560.7 MB</td>
+        </tr>
+
+        <tr>
+            <td>Downsampling</td>
+            <td class="completed">✓ Completed</td>
+            <td>431.2s</td>
+            <td>164 overview tiles</td>
+        </tr>
+
+        <tr>
+            <td>Index</td>
+            <td class="completed">✓ Completed</td>
+            <td>1.6s</td>
+            <td>31 features</td>
+        </tr>
+
+    </table>
+</body>
+</html>

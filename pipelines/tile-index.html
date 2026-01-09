@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+    <meta charset='utf-8'>
+    <title>Tile Index - 01KEFRJHEW63XWXV1H29GA335R</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+        .stats {
+            color: #666;
+            font-size: 14px;
+        }
+        .stats strong {
+            color: #333;
+        }
+        .viewer-button {
+            display: inline-block;
+            margin-top: 15px;
+            padding: 10px 20px;
+            background: #4CAF50;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+        .viewer-button:hover {
+            background: #45a049;
+        }
+        table {
+            width: 100%;
+            background: white;
+            border-collapse: collapse;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #333;
+            position: sticky;
+            top: 0;
+        }
+        tr:hover {
+            background: #f8f9fa;
+        }
+        .tile-coords {
+            font-family: monospace;
+            font-size: 13px;
+            color: #666;
+        }
+        .geo-coords {
+            font-size: 13px;
+            color: #666;
+        }
+        .preview-thumbnail {
+            width: 80px;
+            height: 80px;
+            object-fit: cover;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .preview-thumbnail:hover {
+            transform: scale(1.5);
+            z-index: 100;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        .no-preview {
+            width: 80px;
+            height: 80px;
+            background: #f0f0f0;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            color: #999;
+        }
+        .sources {
+            font-size: 12px;
+            color: #666;
+            max-width: 300px;
+        }
+        .source-item {
+            margin-bottom: 4px;
+        }
+        .source-name {
+            font-weight: 500;
+            color: #0066cc;
+        }
+        .status {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .status.completed {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status.pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .view-link {
+            display: inline-block;
+            padding: 6px 12px;
+            background: #0066cc;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 13px;
+            transition: background 0.2s;
+        }
+        .view-link:hover {
+            background: #0052a3;
+        }
+        .note {
+            margin-top: 20px;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            border-left: 4px solid #0066cc;
+            font-size: 14px;
+            color: #666;
+        }
+        .note strong {
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Tile Index</h1>
+        <div class="stats">
+            <strong>Aggregation ID:</strong> 01KEFRJHEW63XWXV1H29GA335R<br>
+            <strong>Total Tiles:</strong> 31
+            (<strong>31</strong> completed, <strong>0</strong> pending)
+        </div>
+        <a href="index.html#map=7/-29.830818/151.875000" class="viewer-button" target="_blank">
+            🗺️ Open Viewer (Auto-centered on Data)
+        </a>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Preview</th>
+                <th>Tile Coords<br>(z/x/y)</th>
+                <th>Max Zoom</th>
+                <th>Center<br>(lat, lon)</th>
+                <th>Bounds<br>(W, S, E, N)</th>
+                <th>Sources</th>
+                <th>Status</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+
+            <tr>
+                <td><div class='no-preview'>No preview</div></td>
+                <td class='tile-coords'>8/234/144</td>
+                <td>14</td>
+                <td class='geo-coords'>-22.5922, 149.7656</td>
+                <td class='geo-coords' style='font-size: 11px;'>
+                    149.062, -23.241<br>
+                    150.469, -21.943
+                </td>
+                <td class='sources'><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_0_0.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_0_16384.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_0_24576.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_0_8192.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_16384_0.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_16384_16384.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_16384_24576.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_16384_8192.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_8192_0.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_8192_16384.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_8192_24576.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_8192_8192.tif</div></td>
+                <td><span class='status completed'>Completed</span></td>
+                <td><a href='index.html#map=11/-22.592196/149.765625' class='view-link' target='_blank'>View</a></td>
+            </tr>
+
+            <tr>
+                <td><div class='no-preview'>No preview</div></td>
+                <td class='tile-coords'>8/234/145</td>
+                <td>14</td>
+                <td class='geo-coords'>-23.8842, 149.7656</td>
+                <td class='geo-coords' style='font-size: 11px;'>
+                    149.062, -24.527<br>
+                    150.469, -23.241
+                </td>
+                <td class='sources'><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_0_24576.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_16384_24576.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_16384_32768.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_8192_24576.tif</div></td>
+                <td><span class='status completed'>Completed</span></td>
+                <td><a href='index.html#map=11/-23.884240/149.765625' class='view-link' target='_blank'>View</a></td>
+            </tr>
+
+            <tr>
+                <td><div class='no-preview'>No preview</div></td>
+                <td class='tile-coords'>8/234/149</td>
+                <td>14</td>
+                <td class='geo-coords'>-28.9198, 149.7656</td>
+                <td class='geo-coords' style='font-size: 11px;'>
+                    149.062, -29.535<br>
+                    150.469, -28.304
+                </td>
+                <td class='sources'><div class='source-item'><span class='source-name'>au5</span>: mdbaz56_qg_tile_0_0_tile_0_0.tif</div><div class='source-item'><span class='source-name'>au5</span>: mdbaz56_qg_tile_0_8192_tile_0_0.tif</div><div class='source-item'><span class='source-name'>au5</span>: mdbaz56_qg_tile_8192_0_tile_0_0.tif</div><div class='source-item'><span class='source-name'>au5</span>: mdbaz56_qg_tile_8192_8192_tile_0_0.tif</div></td>
+                <td><span class='status completed'>Completed</span></td>
+                <td><a href='index.html#map=11/-28.919805/149.765625' class='view-link' target='_blank'>View</a></td>
+            </tr>
+
+            <tr>
+                <td><div class='no-preview'>No preview</div></td>
+                <td class='tile-coords'>8/234/150</td>
+                <td>14</td>
+                <td class='geo-coords'>-30.1433, 149.7656</td>
+                <td class='geo-coords' style='font-size: 11px;'>
+                    149.062, -30.751<br>
+                    150.469, -29.535
+                </td>
+                <td class='sources'><div class='source-item'><span class='source-name'>au5</span>: mdbaz56_qg_tile_0_40960_tile_0_0.tif</div><div class='source-item'><span class='source-name'>au5</span>: mdbaz56_qg_tile_0_49152_tile_0_0.tif</div></td>
+                <td><span class='status completed'>Completed</span></td>
+                <td><a href='index.html#map=11/-30.143254/149.765625' class='view-link' target='_blank'>View</a></td>
+            </tr>
+
+            <tr>
+                <td><div class='no-preview'>No preview</div></td>
+                <td class='tile-coords'>8/234/152</td>
+                <td>14</td>
+                <td class='geo-coords'>-32.5449, 149.7656</td>
+                <td class='geo-coords' style='font-size: 11px;'>
+                    149.062, -33.138<br>
+                    150.469, -31.952
+                </td>
+                <td class='sources'><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_24576_245760.tif</div></td>
+                <td><span class='status completed'>Completed</span></td>
+                <td><a href='index.html#map=11/-32.544857/149.765625' class='view-link' target='_blank'>View</a></td>
+            </tr>
+
+            <tr>
+                <td><div class='no-preview'>No preview</div></td>
+                <td class='tile-coords'>8/234/153</td>
+                <td>14</td>
+                <td class='geo-coords'>-33.7223, 149.7656</td>
+                <td class='geo-coords' style='font-size: 11px;'>
+                    149.062, -34.307<br>
+                    150.469, -33.138
+                </td>
+                <td class='sources'><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_16384_253952.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_16384_262144.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_16384_270336.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_24576_245760.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_24576_253952.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_24576_262144.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_24576_270336.tif</div></td>
+                <td><span class='status completed'>Completed</span></td>
+                <td><a href='index.html#map=11/-33.722348/149.765625' class='view-link' target='_blank'>View</a></td>
+            </tr>
+
+            <tr>
+                <td><div class='no-preview'>No preview</div></td>
+                <td class='tile-coords'>8/234/154</td>
+                <td>14</td>
+                <td class='geo-coords'>-34.8839, 149.7656</td>
+                <td class='geo-coords' style='font-size: 11px;'>
+                    149.062, -35.461<br>
+                    150.469, -34.307
+                </td>
+                <td class='sources'><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_16384_270336.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_16384_286720.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_16384_294912.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_24576_270336.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_24576_278528.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_24576_286720.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_24576_294912.tif</div></td>
+                <td><span class='status completed'>Completed</span></td>
+                <td><a href='index.html#map=11/-34.883907/149.765625' class='view-link' target='_blank'>View</a></td>
+            </tr>
+
+            <tr>
+                <td><div class='no-preview'>No preview</div></td>
+                <td class='tile-coords'>8/234/155</td>
+                <td>14</td>
+                <td class='geo-coords'>-36.0293, 149.7656</td>
+                <td class='geo-coords' style='font-size: 11px;'>
+                    149.062, -36.598<br>
+                    150.469, -35.461
+                </td>
+                <td class='sources'><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_16384_294912.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_16384_303104.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_16384_311296.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_16384_319488.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_24576_294912.tif</div></td>
+                <td><span class='status completed'>Completed</span></td>
+                <td><a href='index.html#map=11/-36.029280/149.765625' class='view-link' target='_blank'>View</a></td>
+            </tr>
+
+            <tr>
+                <td><div class='no-preview'>No preview</div></td>
+                <td class='tile-coords'>8/234/156</td>
+                <td>14</td>
+                <td class='geo-coords'>-37.1582, 149.7656</td>
+                <td class='geo-coords' style='font-size: 11px;'>
+                    149.062, -37.719<br>
+                    150.469, -36.598
+                </td>
+                <td class='sources'><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_16384_319488.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_16384_335872.tif</div></td>
+                <td><span class='status completed'>Completed</span></td>
+                <td><a href='index.html#map=11/-37.158240/149.765625' class='view-link' target='_blank'>View</a></td>
+            </tr>
+
+            <tr>
+                <td><div class='no-preview'>No preview</div></td>
+                <td class='tile-coords'>8/235/144</td>
+                <td>14</td>
+                <td class='geo-coords'>-22.5922, 151.1719</td>
+                <td class='geo-coords' style='font-size: 11px;'>
+                    150.469, -23.241<br>
+                    151.875, -21.943
+                </td>
+                <td class='sources'><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_16384_0.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_16384_16384.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_16384_24576.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_16384_8192.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_24576_0.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_24576_16384.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_24576_24576.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_24576_8192.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_32768_24576.tif</div></td>
+                <td><span class='status completed'>Completed</span></td>
+                <td><a href='index.html#map=11/-22.592196/151.171875' class='view-link' target='_blank'>View</a></td>
+            </tr>
+
+            <tr>
+                <td><div class='no-preview'>No preview</div></td>
+                <td class='tile-coords'>8/235/145</td>
+                <td>14</td>
+                <td class='geo-coords'>-23.8842, 151.1719</td>
+                <td class='geo-coords' style='font-size: 11px;'>
+                    150.469, -24.527<br>
+                    151.875, -23.241
+                </td>
+                <td class='sources'><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_16384_24576.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_16384_32768.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_24576_24576.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_24576_32768.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_24576_40960.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_32768_24576.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_32768_32768.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_32768_40960.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_32768_49152.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_40960_40960.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_40960_49152.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_49152_40960.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_49152_49152.tif</div></td>
+                <td><span class='status completed'>Completed</span></td>
+                <td><a href='index.html#map=11/-23.884240/151.171875' class='view-link' target='_blank'>View</a></td>
+            </tr>
+
+            <tr>
+                <td><div class='no-preview'>No preview</div></td>
+                <td class='tile-coords'>8/235/146</td>
+                <td>14</td>
+                <td class='geo-coords'>-25.1635, 151.1719</td>
+                <td class='geo-coords' style='font-size: 11px;'>
+                    150.469, -25.800<br>
+                    151.875, -24.527
+                </td>
+                <td class='sources'><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_32768_49152.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_40960_49152.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_40960_57344.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_40960_65536.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_49152_49152.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_49152_57344.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_49152_65536.tif</div></td>
+                <td><span class='status completed'>Completed</span></td>
+                <td><a href='index.html#map=11/-25.163513/151.171875' class='view-link' target='_blank'>View</a></td>
+            </tr>
+
+            <tr>
+                <td><div class='no-preview'>No preview</div></td>
+                <td class='tile-coords'>8/235/148</td>
+                <td>14</td>
+                <td class='geo-coords'>-27.6818, 151.1719</td>
+                <td class='geo-coords' style='font-size: 11px;'>
+                    150.469, -28.304<br>
+                    151.875, -27.059
+                </td>
+                <td class='sources'><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_40960_122880.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_40960_131072.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_49152_114688.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_49152_122880.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_49152_131072.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_49152_139264.tif</div></td>
+                <td><span class='status completed'>Completed</span></td>
+                <td><a href='index.html#map=11/-27.681753/151.171875' class='view-link' target='_blank'>View</a></td>
+            </tr>
+
+            <tr>
+                <td><div class='no-preview'>No preview</div></td>
+                <td class='tile-coords'>8/235/149</td>
+                <td>14</td>
+                <td class='geo-coords'>-28.9198, 151.1719</td>
+                <td class='geo-coords' style='font-size: 11px;'>
+                    150.469, -29.535<br>
+                    151.875, -28.304
+                </td>
+                <td class='sources'><div class='source-item'><span class='source-name'>au5</span>: mdbaz56_qg_tile_8192_0_tile_0_0.tif</div><div class='source-item'><span class='source-name'>au5</span>: mdbaz56_qg_tile_8192_8192_tile_0_0.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_49152_139264.tif</div></td>
+                <td><span class='status completed'>Completed</span></td>
+                <td><a href='index.html#map=11/-28.919805/151.171875' class='view-link' target='_blank'>View</a></td>
+            </tr>
+
+            <tr>
+                <td><div class='no-preview'>No preview</div></td>
+                <td class='tile-coords'>8/235/152</td>
+                <td>14</td>
+                <td class='geo-coords'>-32.5449, 151.1719</td>
+                <td class='geo-coords' style='font-size: 11px;'>
+                    150.469, -33.138<br>
+                    151.875, -31.952
+                </td>
+                <td class='sources'><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_24576_245760.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_32768_245760.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_40960_229376.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_40960_237568.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_40960_245760.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_49152_221184.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_49152_229376.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_49152_237568.tif</div></td>
+                <td><span class='status completed'>Completed</span></td>
+                <td><a href='index.html#map=11/-32.544857/151.171875' class='view-link' target='_blank'>View</a></td>
+            </tr>
+
+            <tr>
+                <td><div class='no-preview'>No preview</div></td>
+                <td class='tile-coords'>8/235/153</td>
+                <td>14</td>
+                <td class='geo-coords'>-33.7223, 151.1719</td>
+                <td class='geo-coords' style='font-size: 11px;'>
+                    150.469, -34.307<br>
+                    151.875, -33.138
+                </td>
+                <td class='sources'><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_24576_245760.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_24576_253952.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_24576_262144.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_24576_270336.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_32768_245760.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_32768_253952.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_32768_262144.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_32768_270336.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_40960_245760.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_40960_253952.tif</div></td>
+                <td><span class='status completed'>Completed</span></td>
+                <td><a href='index.html#map=11/-33.722348/151.171875' class='view-link' target='_blank'>View</a></td>
+            </tr>
+
+            <tr>
+                <td><div class='no-preview'>No preview</div></td>
+                <td class='tile-coords'>8/235/154</td>
+                <td>14</td>
+                <td class='geo-coords'>-34.8839, 151.1719</td>
+                <td class='geo-coords' style='font-size: 11px;'>
+                    150.469, -35.461<br>
+                    151.875, -34.307
+                </td>
+                <td class='sources'><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_24576_270336.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_24576_278528.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_24576_286720.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_24576_294912.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_32768_270336.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_32768_278528.tif</div></td>
+                <td><span class='status completed'>Completed</span></td>
+                <td><a href='index.html#map=11/-34.883907/151.171875' class='view-link' target='_blank'>View</a></td>
+            </tr>
+
+            <tr>
+                <td><div class='no-preview'>No preview</div></td>
+                <td class='tile-coords'>8/235/155</td>
+                <td>14</td>
+                <td class='geo-coords'>-36.0293, 151.1719</td>
+                <td class='geo-coords' style='font-size: 11px;'>
+                    150.469, -36.598<br>
+                    151.875, -35.461
+                </td>
+                <td class='sources'><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_24576_294912.tif</div></td>
+                <td><span class='status completed'>Completed</span></td>
+                <td><a href='index.html#map=11/-36.029280/151.171875' class='view-link' target='_blank'>View</a></td>
+            </tr>
+
+            <tr>
+                <td><div class='no-preview'>No preview</div></td>
+                <td class='tile-coords'>8/236/145</td>
+                <td>14</td>
+                <td class='geo-coords'>-23.8842, 152.5781</td>
+                <td class='geo-coords' style='font-size: 11px;'>
+                    151.875, -24.527<br>
+                    153.281, -23.241
+                </td>
+                <td class='sources'><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_40960_40960.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_40960_49152.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_49152_40960.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_49152_49152.tif</div></td>
+                <td><span class='status completed'>Completed</span></td>
+                <td><a href='index.html#map=11/-23.884240/152.578125' class='view-link' target='_blank'>View</a></td>
+            </tr>
+
+            <tr>
+                <td><div class='no-preview'>No preview</div></td>
+                <td class='tile-coords'>8/236/146</td>
+                <td>14</td>
+                <td class='geo-coords'>-25.1635, 152.5781</td>
+                <td class='geo-coords' style='font-size: 11px;'>
+                    151.875, -25.800<br>
+                    153.281, -24.527
+                </td>
+                <td class='sources'><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_40960_49152.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_40960_57344.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_49152_49152.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_49152_57344.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_49152_65536.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_57344_57344.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_57344_65536.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_57344_73728.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_57344_81920.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_65536_65536.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_65536_73728.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_65536_81920.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_73728_57344.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_73728_65536.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_73728_73728.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_73728_81920.tif</div></td>
+                <td><span class='status completed'>Completed</span></td>
+                <td><a href='index.html#map=11/-25.163513/152.578125' class='view-link' target='_blank'>View</a></td>
+            </tr>
+
+            <tr>
+                <td><div class='no-preview'>No preview</div></td>
+                <td class='tile-coords'>8/236/147</td>
+                <td>14</td>
+                <td class='geo-coords'>-26.4295, 152.5781</td>
+                <td class='geo-coords' style='font-size: 11px;'>
+                    151.875, -27.059<br>
+                    153.281, -25.800
+                </td>
+                <td class='sources'><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_57344_106496.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_57344_81920.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_57344_90112.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_57344_98304.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_65536_106496.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_65536_81920.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_65536_90112.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_65536_98304.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_73728_106496.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_73728_81920.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_73728_90112.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_73728_98304.tif</div></td>
+                <td><span class='status completed'>Completed</span></td>
+                <td><a href='index.html#map=11/-26.429508/152.578125' class='view-link' target='_blank'>View</a></td>
+            </tr>
+
+            <tr>
+                <td><div class='no-preview'>No preview</div></td>
+                <td class='tile-coords'>8/236/148</td>
+                <td>14</td>
+                <td class='geo-coords'>-27.6818, 152.5781</td>
+                <td class='geo-coords' style='font-size: 11px;'>
+                    151.875, -28.304<br>
+                    153.281, -27.059
+                </td>
+                <td class='sources'><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_49152_114688.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_49152_122880.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_49152_131072.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_49152_139264.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_57344_106496.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_57344_114688.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_57344_122880.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_57344_131072.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_57344_139264.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_65536_106496.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_65536_114688.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_65536_122880.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_65536_131072.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_65536_139264.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_73728_106496.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_73728_114688.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_73728_122880.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_73728_131072.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_73728_139264.tif</div></td>
+                <td><span class='status completed'>Completed</span></td>
+                <td><a href='index.html#map=11/-27.681753/152.578125' class='view-link' target='_blank'>View</a></td>
+            </tr>
+
+            <tr>
+                <td><div class='no-preview'>No preview</div></td>
+                <td class='tile-coords'>8/236/149</td>
+                <td>14</td>
+                <td class='geo-coords'>-28.9198, 152.5781</td>
+                <td class='geo-coords' style='font-size: 11px;'>
+                    151.875, -29.535<br>
+                    153.281, -28.304
+                </td>
+                <td class='sources'><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_49152_139264.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_57344_139264.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_65536_139264.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_65536_147456.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_65536_155648.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_65536_163840.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_73728_139264.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_73728_147456.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_73728_155648.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_73728_163840.tif</div></td>
+                <td><span class='status completed'>Completed</span></td>
+                <td><a href='index.html#map=11/-28.919805/152.578125' class='view-link' target='_blank'>View</a></td>
+            </tr>
+
+            <tr>
+                <td><div class='no-preview'>No preview</div></td>
+                <td class='tile-coords'>8/236/150</td>
+                <td>14</td>
+                <td class='geo-coords'>-30.1433, 152.5781</td>
+                <td class='geo-coords' style='font-size: 11px;'>
+                    151.875, -30.751<br>
+                    153.281, -29.535
+                </td>
+                <td class='sources'><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_65536_163840.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_65536_172032.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_65536_180224.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_65536_188416.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_73728_163840.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_73728_172032.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_73728_180224.tif</div></td>
+                <td><span class='status completed'>Completed</span></td>
+                <td><a href='index.html#map=11/-30.143254/152.578125' class='view-link' target='_blank'>View</a></td>
+            </tr>
+
+            <tr>
+                <td><div class='no-preview'>No preview</div></td>
+                <td class='tile-coords'>8/236/151</td>
+                <td>14</td>
+                <td class='geo-coords'>-31.3517, 152.5781</td>
+                <td class='geo-coords' style='font-size: 11px;'>
+                    151.875, -31.952<br>
+                    153.281, -30.751
+                </td>
+                <td class='sources'><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_57344_196608.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_57344_204800.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_57344_212992.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_65536_188416.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_65536_196608.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_65536_204800.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_65536_212992.tif</div></td>
+                <td><span class='status completed'>Completed</span></td>
+                <td><a href='index.html#map=11/-31.351720/152.578125' class='view-link' target='_blank'>View</a></td>
+            </tr>
+
+            <tr>
+                <td><div class='no-preview'>No preview</div></td>
+                <td class='tile-coords'>8/236/152</td>
+                <td>14</td>
+                <td class='geo-coords'>-32.5449, 152.5781</td>
+                <td class='geo-coords' style='font-size: 11px;'>
+                    151.875, -33.138<br>
+                    153.281, -31.952
+                </td>
+                <td class='sources'><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_49152_221184.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_49152_229376.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_49152_237568.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_57344_212992.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_57344_221184.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_57344_229376.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_65536_212992.tif</div></td>
+                <td><span class='status completed'>Completed</span></td>
+                <td><a href='index.html#map=11/-32.544857/152.578125' class='view-link' target='_blank'>View</a></td>
+            </tr>
+
+            <tr>
+                <td><div class='no-preview'>No preview</div></td>
+                <td class='tile-coords'>8/237/146</td>
+                <td>14</td>
+                <td class='geo-coords'>-25.1635, 153.9844</td>
+                <td class='geo-coords' style='font-size: 11px;'>
+                    153.281, -25.800<br>
+                    154.688, -24.527
+                </td>
+                <td class='sources'><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_73728_57344.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_73728_65536.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_73728_73728.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_73728_81920.tif</div></td>
+                <td><span class='status completed'>Completed</span></td>
+                <td><a href='index.html#map=11/-25.163513/153.984375' class='view-link' target='_blank'>View</a></td>
+            </tr>
+
+            <tr>
+                <td><div class='no-preview'>No preview</div></td>
+                <td class='tile-coords'>8/237/147</td>
+                <td>14</td>
+                <td class='geo-coords'>-26.4295, 153.9844</td>
+                <td class='geo-coords' style='font-size: 11px;'>
+                    153.281, -27.059<br>
+                    154.688, -25.800
+                </td>
+                <td class='sources'><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_73728_106496.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_73728_81920.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_73728_90112.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_73728_98304.tif</div></td>
+                <td><span class='status completed'>Completed</span></td>
+                <td><a href='index.html#map=11/-26.429508/153.984375' class='view-link' target='_blank'>View</a></td>
+            </tr>
+
+            <tr>
+                <td><div class='no-preview'>No preview</div></td>
+                <td class='tile-coords'>8/237/148</td>
+                <td>14</td>
+                <td class='geo-coords'>-27.6818, 153.9844</td>
+                <td class='geo-coords' style='font-size: 11px;'>
+                    153.281, -28.304<br>
+                    154.688, -27.059
+                </td>
+                <td class='sources'><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_73728_106496.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_73728_114688.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_73728_122880.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_73728_131072.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_73728_139264.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_81920_114688.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_81920_131072.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_81920_139264.tif</div></td>
+                <td><span class='status completed'>Completed</span></td>
+                <td><a href='index.html#map=11/-27.681753/153.984375' class='view-link' target='_blank'>View</a></td>
+            </tr>
+
+            <tr>
+                <td><div class='no-preview'>No preview</div></td>
+                <td class='tile-coords'>8/237/149</td>
+                <td>14</td>
+                <td class='geo-coords'>-28.9198, 153.9844</td>
+                <td class='geo-coords' style='font-size: 11px;'>
+                    153.281, -29.535<br>
+                    154.688, -28.304
+                </td>
+                <td class='sources'><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_73728_139264.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_73728_147456.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_73728_155648.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_73728_163840.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_81920_139264.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_81920_147456.tif</div></td>
+                <td><span class='status completed'>Completed</span></td>
+                <td><a href='index.html#map=11/-28.919805/153.984375' class='view-link' target='_blank'>View</a></td>
+            </tr>
+
+            <tr>
+                <td><div class='no-preview'>No preview</div></td>
+                <td class='tile-coords'>8/237/150</td>
+                <td>14</td>
+                <td class='geo-coords'>-30.1433, 153.9844</td>
+                <td class='geo-coords' style='font-size: 11px;'>
+                    153.281, -30.751<br>
+                    154.688, -29.535
+                </td>
+                <td class='sources'><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_73728_163840.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_73728_172032.tif</div><div class='source-item'><span class='source-name'>au5</span>: nationalz56_ag_tile_73728_180224.tif</div></td>
+                <td><span class='status completed'>Completed</span></td>
+                <td><a href='index.html#map=11/-30.143254/153.984375' class='view-link' target='_blank'>View</a></td>
+            </tr>
+
+        </tbody>
+    </table>
+
+    <div class="note">
+        <strong>How to use:</strong> Click "View" to open the map viewer centered on that tile.
+        The viewer URL includes the tile's center coordinates, so you can also bookmark or share these links.
+        <br><br>
+        <strong>Coverage Overlay:</strong> To see all tile boundaries on the map, add the generated
+        <code>tile-coverage.geojson</code> as a layer in index.html.
+    </div>
+</body>
+</html>
