@@ -28,7 +28,7 @@ def download_file(url: str, filepath: Path) -> None:
                 downloaded_size += len(chunk)
 
 
-def download_from_internet(source: str) -> None:
+def download_files(source: str) -> None:
     """
     Download all files listed in the source's file_list.txt.
 
@@ -98,7 +98,7 @@ def main() -> None:
     utils.create_folder(f"source-store/{source}/")
 
     try:
-        download_from_internet(source)
+        download_files(source)
         print(f"\n✓ SUCCESS: All files for '{source}' downloaded successfully")
     except Exception as error:
         print(f"\n✗ FAILED: {str(error)}")
