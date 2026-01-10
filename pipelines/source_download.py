@@ -6,9 +6,13 @@ import requests
 from urllib.parse import urlparse
 
 
-def download_file(url, filepath):
+def download_file(url: str, filepath: Path) -> None:
     """
-    Download a file using requests library.
+    Download a file from a URL and save it to the specified filepath.
+
+    Args:
+        url: The URL to download from.
+        filepath: The local path where the file will be saved.
     """
     head_response = requests.head(url, allow_redirects=True, timeout=30)
     head_response.raise_for_status()
@@ -24,7 +28,19 @@ def download_file(url, filepath):
                 downloaded_size += len(chunk)
 
 
-def download_from_internet(source):
+def download_from_internet(source: str) -> None:
+    """
+    Download all files listed in the source's file_list.txt.
+
+    Args:
+        source: The name of the source (used to locate file_list.txt and determine save location).
+
+    Raises:
+        FileNotFoundError: If the file_list.txt does not exist for the source.
+        ValueError: If no URLs are found in the file_list.txt.
+        requests.exceptions.RequestException: If any HTTP request fails (e.g. connection errors,
+            timeouts, HTTP errors).
+    """
     file_list_path = f"../source-catalog/{source}/file_list.txt"
 
     if not os.path.exists(file_list_path):
@@ -58,7 +74,19 @@ def download_from_internet(source):
         download_file(url, filepath)
 
 
-def main():
+def main() -> None:
+    """
+    Main entry point for the source download script.
+
+    Parses command-line arguments and initiates the download process for a specified source.
+
+    Command-line arguments:
+        source_name: The name of the source to download. This should match a directory
+            in the source-catalog folder that contains a file_list.txt.
+
+    Usage:
+        uv run python source_download.py <source_name>
+    """
     if len(sys.argv) < 2:
         print("ERROR: source argument missing")
         print("Usage: uv run python source_download.py <source_name>")
