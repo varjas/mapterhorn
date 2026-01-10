@@ -1,13 +1,9 @@
 # Source preparation pipeline to be run from mapterhorn/pipelines folder
 [no-cd]
 default:
-    uv run python source_download.py usgs3dep1m
-    uv run python source_bounds.py usgs3dep1m
-    uv run python source_polygonize.py usgs3dep1m 32
-    uv run python source_create_tarball.py usgs3dep1m
-
-# Generate file list from TNM API (run this first to populate file_list.txt)
-# Use --bbox to limit to a specific area, e.g., --bbox -125,24,-66,50 for CONUS
-[no-cd]
-fetch-urls:
-    uv run python usgs_tnm_fetch_urls.py --dataset 1m --output ../source-catalog/usgs3dep1m/file_list.txt
+    uv run python source_download.py usgs3dep1
+    uv run python source_slice.py usgs3dep1 16384
+    uv run python source_to_cog.py usgs3dep1
+    uv run python source_bounds.py usgs3dep1
+    uv run python source_polygonize.py usgs3dep1 32
+    uv run python source_create_tarball.py usgs3dep1
