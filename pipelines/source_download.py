@@ -23,7 +23,7 @@ def is_xml_error_page(filepath):
     return False
 
 
-def is_valid_file(filepath, min_size=1000):
+def validate_file(filepath, min_size=1000):
     """
     Simple validation: check file exists, is non-empty, and not an XML error page.
     Raises ValueError if file is invalid.
@@ -94,6 +94,7 @@ def download_from_internet(source):
         print(f"[{index}/{total_urls}] Downloading: {url}")
 
         download_file(url, filepath)
+        validate_file(filepath)
 
 
 def main():
@@ -110,8 +111,8 @@ def main():
     try:
         download_from_internet(source)
         print(f"\n✓ SUCCESS: All files for '{source}' downloaded successfully")
-    except Exception as e:
-        print(f"\n✗ FAILED: {str(e)}")
+    except Exception as error:
+        print(f"\n✗ FAILED: {str(error)}")
         sys.exit(1)
 
 
