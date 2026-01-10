@@ -4,6 +4,23 @@ import sys
 from pathlib import Path
 import requests
 from urllib.parse import urlparse
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import threading
+
+
+class ProgressCounter:
+    """Thread-safe counter for tracking download progress."""
+
+    def __init__(self, total: int):
+        self.completed = 0
+        self.total = total
+        self.lock = threading.Lock()
+
+    def increment(self) -> int:
+        """Increment the counter and return the new value."""
+        with self.lock:
+            self.completed += 1
+            return self.completed
 
 
 def download_file(url: str, filepath: Path) -> None:
@@ -64,14 +81,37 @@ def download_files(source: str) -> None:
     print(f"Found {total_urls} file(s) to download\n")
 
     source_dir = Path(f"source-store/{source}")
+    max_workers = 3
+    counter = ProgressCounter(total_urls)
 
-    for index, url in enumerate(urls, 1):
+    def download_with_progress(url: str) -> tuple[str, str, bool]:
+        """Download a file and return status information."""
         filename = Path(urlparse(url).path).name
         filepath = source_dir / filename
+        try:
+            download_file(url, filepath)
+            completed = counter.increment()
+            return filename, f"[{completed}/{total_urls}] ✓ {filename}", True
+        except Exception as e:
+            completed = counter.increment()
+            return filename, f"[{completed}/{total_urls}] ✗ {filename} - {str(e)}", False
 
-        print(f"[{index}/{total_urls}] Downloading: {url}")
+    failed_downloads = []
 
-        download_file(url, filepath)
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {executor.submit(download_with_progress, url): url for url in urls}
+
+        for future in as_completed(futures):
+            filename, message, success = future.result()
+            print(message)
+            if not success:
+                failed_downloads.append((futures[future], filename))
+
+    if failed_downloads:
+        error_msg = f"{len(failed_downloads)} file(s) failed to download:\n"
+        for url, filename in failed_downloads:
+            error_msg += f"  - {filename}: {url}\n"
+        raise RuntimeError(error_msg.strip())
 
 
 def main() -> None:
