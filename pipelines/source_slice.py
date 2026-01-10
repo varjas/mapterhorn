@@ -44,7 +44,7 @@ def slice_tif(filepath, tile_size):
                 argument_tuples.append((filepath, x, y, w, h))
     
     with Pool() as pool:
-        pool.starmap(make_tile, argument_tuples, chunksize=1)
+        pool.starmap(make_tile, argument_tuples, chunksize=3)
     
 def main():
     source = None
