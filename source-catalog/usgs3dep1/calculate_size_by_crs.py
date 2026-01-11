@@ -17,7 +17,7 @@ OUTPUT_JSON = Path(__file__).parent / "files_by_crs_and_lat.json"
 FAILED_JSON = Path(__file__).parent / "files_failed.json"
 NO_CRS_JSON = Path(__file__).parent / "files_no_crs.json"
 
-LAT_BAND_DEGREES = 2
+LAT_BAND_DEGREES = 1
 
 def lat_band_name(lat):
     """Generate latitude band identifier like 'n40', 'n42', 's10', etc."""
