@@ -7,3 +7,36 @@ default:
     uv run python source_bounds.py usgs3dep1
     uv run python source_polygonize.py usgs3dep1 32
     uv run python source_create_tarball.py usgs3dep1
+
+# List all nested sources
+[no-cd]
+list-nested:
+    #!/usr/bin/env bash
+    cd ../source-catalog/usgs3dep1
+    find w* -name "Justfile" -type f | sed 's|/Justfile||' | sort
+
+# Process all nested sources sequentially
+[no-cd]
+process-all-nested:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cd ../source-catalog/usgs3dep1
+    for lon_dir in w*/; do
+        for justfile in "$lon_dir"*/Justfile; do
+            if [ -f "$justfile" ]; then
+                source_path=$(dirname "$justfile")
+                echo "Processing usgs3dep1/$source_path"
+                just -f "../source-catalog/usgs3dep1/$justfile" || echo "Failed: $source_path"
+            fi
+        done
+    done
+
+# Process nested sources with upload and cleanup (recommended for large datasets)
+[no-cd]
+process-nested-incremental:
+    uv run python process_nested_sources.py usgs3dep1
+
+# Dry run to see what would be processed
+[no-cd]
+process-nested-dry-run:
+    uv run python process_nested_sources.py usgs3dep1 --dry-run
