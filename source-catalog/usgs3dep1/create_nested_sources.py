@@ -18,8 +18,12 @@ from pathlib import Path
 from collections import defaultdict
 
 # Configuration
-LON_BAND_GROUPING = 6  # Group by UTM zone width (6° bands aligned to UTM boundaries)
-LAT_BAND_GROUPING = 2  # Group 2 consecutive 1° latitude bands
+LON_BAND_GROUPING = 2  # Must be a divisor of 6 (1, 2, 3, or 6) to align with UTM zones
+LAT_BAND_GROUPING = 2  # Any integer value for latitude grouping
+
+# Validate configuration
+if 6 % LON_BAND_GROUPING != 0:
+    raise ValueError(f"LON_BAND_GROUPING must be a divisor of 6 (1, 2, 3, or 6), got {LON_BAND_GROUPING}")
 
 # UTM zone boundaries (for Northern hemisphere)
 # UTM zones are 6° wide, centered on meridians
@@ -40,27 +44,39 @@ def get_primary_utm_zone(lon_deg):
     epsg_code = f"EPSG:269{zone:02d}"
     return epsg_code
 
-def get_utm_aligned_lon_group(lon_deg):
+def get_utm_aligned_lon_group(lon_deg, grouping_size):
     """
     Get UTM-aligned longitude group name.
-    Each group corresponds to a 6° UTM zone.
+    Groups are aligned to UTM zone boundaries (which are 6° wide).
 
-    Examples:
+    Examples with grouping_size=6:
     - -156°W is in UTM Zone 5 (boundary at -156°W), returns w156
     - -75°W is in UTM Zone 18 (boundary at -78°W), returns w078
+
+    Examples with grouping_size=2:
+    - -156°W -> UTM Zone 5 boundary is -156°W, subdivided as: w156, w158, w160
+    - -75°W -> UTM Zone 18 boundary is -78°W, subdivided as: w078, w076, w074
     """
     # Calculate which UTM zone this longitude is in
     zone = math.floor((lon_deg + 180) / 6) + 1
 
     # Calculate the western boundary of this UTM zone
-    # Zone 1 starts at -180°, zone 2 at -174°, etc.
     west_boundary = -180 + (zone - 1) * 6
 
-    # Return the western boundary as the group name
-    if west_boundary >= 0:
-        return f"e{abs(west_boundary):03d}"
+    # Calculate offset within the UTM zone (0 to 5 degrees)
+    offset_in_zone = lon_deg - west_boundary
+
+    # Round down to nearest multiple of grouping_size within the zone
+    group_offset = (offset_in_zone // grouping_size) * grouping_size
+
+    # Calculate the actual group boundary
+    group_boundary = west_boundary + group_offset
+
+    # Return the group boundary as the group name
+    if group_boundary >= 0:
+        return f"e{abs(group_boundary):03d}"
     else:
-        return f"w{abs(west_boundary):03d}"
+        return f"w{abs(group_boundary):03d}"
 
 def parse_lon_band(lon_band):
     """Parse longitude band string to degrees (e.g., 'w074' -> -74)"""
@@ -106,8 +122,8 @@ def get_friendly_location(lon_group, lat_group):
     lon_dir = "W" if lon_group.startswith("w") else "E"
     lat_dir = "N" if lat_group.startswith("n") else "S"
 
-    # Longitude is UTM-zone aligned (6° wide)
-    lon_range = f"{lon_deg}-{lon_deg + 6}°{lon_dir}"
+    # Longitude is UTM-zone aligned
+    lon_range = f"{lon_deg}-{lon_deg + LON_BAND_GROUPING}°{lon_dir}"
     lat_range = f"{lat_deg}-{lat_deg + LAT_BAND_GROUPING}°{lat_dir}"
 
     return f"{lat_range}, {lon_range}"
@@ -127,10 +143,10 @@ def main():
 
     print("Creating nested source directories with de-duplication...\n")
     print(f"Configuration:")
-    print(f"  Longitude grouping: UTM-zone aligned (6° bands)")
+    print(f"  Longitude grouping: {LON_BAND_GROUPING}° bands (UTM-zone aligned)")
     print(f"  Latitude grouping: {LAT_BAND_GROUPING}° bands")
     print(f"  Structure: usgs3dep1/<lon>/<lat>/")
-    print(f"  Each longitude group contains a single UTM zone\n")
+    print(f"  Longitude bands aligned to UTM boundaries (no mixed CRS)\n")
 
     # Group files by lon/lat grid (with grouping and de-duplication)
     grid_data = defaultdict(lambda: {
@@ -183,7 +199,7 @@ def main():
         seen_files.add(url)
 
         # Generate grouped names
-        lon_group = get_utm_aligned_lon_group(lon_deg)  # UTM-aligned longitude
+        lon_group = get_utm_aligned_lon_group(lon_deg, LON_BAND_GROUPING)  # UTM-aligned longitude
         lat_group = group_band_name(lat_deg, False, LAT_BAND_GROUPING)  # Standard lat grouping
 
         # Create grid key
