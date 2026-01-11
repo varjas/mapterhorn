@@ -216,6 +216,7 @@ def main():
     total_sources = 0
     total_files = 0
     total_bytes = 0
+    mixed_crs_directories = []  # Track directories with multiple CRS
 
     for grid_key, data in sorted(grid_data.items()):
         lon_group = data["lon_group"]
@@ -232,10 +233,12 @@ def main():
         with open(file_list_path, 'w') as f:
             f.write('\n'.join(unique_files))
 
+        # Get location for display and metadata
+        location = get_friendly_location(lon_group, lat_group)
+
         # Create metadata.json
         metadata_path = source_dir / "metadata.json"
         if not metadata_path.exists():
-            location = get_friendly_location(lon_group, lat_group)
             template = {
                 "name": f"USGS 3DEP 1m - {location}",
                 "website": "https://www.sciencebase.gov/catalog/item/4f70aa9fe4b058caae3f8de5",
@@ -273,6 +276,15 @@ default:
         size_gib = data['total_bytes'] / (1024**3)
         crs_list = sorted(data['crs_codes'])
 
+        # Check for mixed CRS
+        if len(crs_list) > 1:
+            mixed_crs_directories.append({
+                "path": f"{lon_group}/{lat_group}",
+                "crs_list": crs_list,
+                "file_count": file_count,
+                "size_gib": size_gib
+            })
+
         print(f"✓ Created {lon_group}/{lat_group}/")
         print(f"    Location: {location}")
         print(f"    CRS: {', '.join(crs_list)}")
@@ -295,6 +307,21 @@ default:
     print(f"Total files: {total_files:,}")
     print(f"Total size: {total_gib:.2f} GiB ({total_tib:.2f} TiB)")
     print(f"\nNested structure created in: {script_dir}/")
+
+    # Report mixed CRS directories
+    if mixed_crs_directories:
+        print(f"\n⚠️  WARNING: {len(mixed_crs_directories)} directories contain multiple CRS:")
+        print("="*60)
+        for item in mixed_crs_directories:
+            print(f"  {item['path']}/")
+            print(f"    CRS: {', '.join(item['crs_list'])}")
+            print(f"    Files: {item['file_count']}, Size: {item['size_gib']:.2f} GiB")
+        print("="*60)
+        print("This indicates a potential issue with UTM zone alignment.")
+        print("Expected: Each directory should contain only one CRS.")
+    else:
+        print(f"\n✓ All directories contain single CRS")
+
     print(f"\nNext steps:")
     print(f"1. Review the created directories")
     print(f"2. Edit metadata.json files if needed")
