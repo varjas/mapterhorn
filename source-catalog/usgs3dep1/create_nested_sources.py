@@ -12,14 +12,13 @@ Usage:
 """
 
 import json
-import shutil
 import math
 from pathlib import Path
 from collections import defaultdict
 
 # Configuration
-LON_BAND_GROUPING = 2  # Must be a divisor of 6 (1, 2, 3, or 6) to align with UTM zones
-LAT_BAND_GROUPING = 2  # Any integer value for latitude grouping
+LON_BAND_GROUPING = 1  # Must be a divisor of 6 (1, 2, 3, or 6) to align with UTM zones
+LAT_BAND_GROUPING = 3  # Any integer value for latitude grouping
 
 # Validate configuration
 if 6 % LON_BAND_GROUPING != 0:
@@ -266,11 +265,12 @@ default:
         with open(justfile_path, 'w') as f:
             f.write(justfile_content)
 
-        # Copy LICENSE if it exists
+        # Create symlink to LICENSE if it exists
         license_src = script_dir / "LICENSE.pdf"
         license_dst = source_dir / "LICENSE.pdf"
         if license_src.exists() and not license_dst.exists():
-            shutil.copy(license_src, license_dst)
+            # Create relative symlink (../../LICENSE.pdf from nested dir)
+            license_dst.symlink_to("../../LICENSE.pdf")
 
         # Stats
         file_count = len(unique_files)
