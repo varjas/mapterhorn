@@ -217,6 +217,7 @@ def main():
     total_files = 0
     total_bytes = 0
     mixed_crs_directories = []  # Track directories with multiple CRS
+    all_directories = []  # Track all directories for stats
 
     for grid_key, data in sorted(grid_data.items()):
         lon_group = data["lon_group"]
@@ -276,14 +277,19 @@ default:
         size_gib = data['total_bytes'] / (1024**3)
         crs_list = sorted(data['crs_codes'])
 
+        # Track directory stats
+        dir_info = {
+            "path": f"{lon_group}/{lat_group}",
+            "location": location,
+            "crs_list": crs_list,
+            "file_count": file_count,
+            "size_gib": size_gib
+        }
+        all_directories.append(dir_info)
+
         # Check for mixed CRS
         if len(crs_list) > 1:
-            mixed_crs_directories.append({
-                "path": f"{lon_group}/{lat_group}",
-                "crs_list": crs_list,
-                "file_count": file_count,
-                "size_gib": size_gib
-            })
+            mixed_crs_directories.append(dir_info)
 
         print(f"✓ Created {lon_group}/{lat_group}/")
         print(f"    Location: {location}")
@@ -321,6 +327,26 @@ default:
         print("Expected: Each directory should contain only one CRS.")
     else:
         print(f"\n✓ All directories contain single CRS")
+
+    # Show largest directories by file count
+    print(f"\nLargest directories by file count:")
+    print("="*60)
+    largest_by_files = sorted(all_directories, key=lambda x: x['file_count'], reverse=True)[:2]
+    for i, item in enumerate(largest_by_files, 1):
+        print(f"{i}. {item['path']}/")
+        print(f"   Location: {item['location']}")
+        print(f"   Files: {item['file_count']:,}, Size: {item['size_gib']:.2f} GiB")
+        print(f"   CRS: {', '.join(item['crs_list'])}")
+
+    # Show largest directories by size
+    print(f"\nLargest directories by size:")
+    print("="*60)
+    largest_by_size = sorted(all_directories, key=lambda x: x['size_gib'], reverse=True)[:2]
+    for i, item in enumerate(largest_by_size, 1):
+        print(f"{i}. {item['path']}/")
+        print(f"   Location: {item['location']}")
+        print(f"   Files: {item['file_count']:,}, Size: {item['size_gib']:.2f} GiB")
+        print(f"   CRS: {', '.join(item['crs_list'])}")
 
     print(f"\nNext steps:")
     print(f"1. Review the created directories")
