@@ -1,133 +1,104 @@
 import os
 import utils
 import sys
+import subprocess
+import shutil
 from pathlib import Path
-from urllib.parse import urlparse
-from concurrent.futures import ThreadPoolExecutor, as_completed
-import httpx
-from rich.progress import (
-    Progress,
-    BarColumn,
-    DownloadColumn,
-    TransferSpeedColumn,
-    TimeRemainingColumn,
-    TextColumn,
-)
 
 
-def download_file(
-    client: httpx.Client, url: str, filepath: Path, progress: Progress, task_id
-) -> tuple[str, bool, str | None]:
+def check_wget_installed() -> bool:
     """
-    Download a single file with progress tracking.
-
-    Args:
-        client: httpx Client for making requests.
-        url: The URL to download from.
-        filepath: The local path where the file will be saved.
-        progress: Rich Progress instance.
-        task_id: Task ID for this download in the progress display.
+    Check if wget is installed and available in PATH.
 
     Returns:
-        Tuple of (filename, success, error_message)
+        True if wget is available, False otherwise.
     """
-    filename = Path(urlparse(url).path).name
-
-    try:
-        with client.stream("GET", url, follow_redirects=True) as response:
-            response.raise_for_status()
-
-            # Get file size
-            total_size = int(response.headers.get("content-length", 0))
-            progress.update(task_id, total=total_size)
-
-            # Download with progress updates
-            with open(filepath, "wb") as f:
-                for chunk in response.iter_bytes(chunk_size=1024 * 1024):  # 1MB chunks
-                    f.write(chunk)
-                    progress.update(task_id, advance=len(chunk))
-
-        return filename, True, None
-
-    except Exception as e:
-        return filename, False, str(e)
+    return shutil.which("wget") is not None
 
 
 def download_all_files(
     urls: list[str], source_dir: Path, max_concurrent: int = 8
-) -> list[tuple[str, str]]:
+) -> None:
     """
-    Download all files concurrently with beautiful progress display.
+    Download all files using wget with automatic resume support.
 
     Args:
         urls: List of URLs to download.
         source_dir: Directory to save downloaded files.
-        max_concurrent: Maximum number of concurrent downloads.
+        max_concurrent: Maximum number of concurrent downloads (not used with wget).
 
-    Returns:
-        List of (url, filename) tuples for failed downloads.
+    Raises:
+        RuntimeError: If wget is not installed or download fails.
     """
-    failed_downloads = []
+    if not check_wget_installed():
+        raise RuntimeError(
+            "wget is not installed. Please install it:\n"
+            "  Ubuntu/Debian: sudo apt install wget\n"
+            "  Mac: brew install wget\n"
+            "  Arch: sudo pacman -S wget"
+        )
 
-    # Create httpx client with connection pooling
-    client = httpx.Client(
-        timeout=httpx.Timeout(60.0, connect=30.0),
-        limits=httpx.Limits(
-            max_connections=max_concurrent, max_keepalive_connections=max_concurrent
-        ),
-        follow_redirects=True,
-    )
+    # Create input file for URLs
+    input_file = source_dir / ".download_urls.txt"
+    with open(input_file, "w") as f:
+        for url in urls:
+            f.write(f"{url}\n")
 
-    # Create rich progress display
-    with Progress(
-        TextColumn("[bold blue]{task.description}", justify="left"),
-        BarColumn(bar_width=None),
-        "[progress.percentage]{task.percentage:>3.1f}%",
-        "•",
-        DownloadColumn(),
-        "•",
-        TransferSpeedColumn(),
-        "•",
-        TimeRemainingColumn(),
-        expand=True,
-    ) as progress:
-        # Add overall task
-        overall_task = progress.add_task("[cyan]Overall Progress", total=len(urls))
+    print(f"Starting download of {len(urls)} file(s)...\n")
 
-        # Create thread pool for concurrent downloads
-        with ThreadPoolExecutor(max_workers=max_concurrent) as executor:
-            # Submit all download tasks
-            future_to_url = {}
-            for url in urls:
-                filename = Path(urlparse(url).path).name
-                filepath = source_dir / filename
+    try:
+        # wget options:
+        #   -nc: no-clobber (skip if file exists)
+        #   -i: input file with URLs
+        #   -P: output directory
+        #   -t 3: retry 3 times on failure
+        #   -T 60: timeout 60 seconds
+        #   --progress=bar:force: show progress bar
+        result = subprocess.run(
+            [
+                "wget",
+                "-nc",  # Skip if file exists (no-clobber)
+                "-i",
+                str(input_file),  # Input file with URLs
+                "-P",
+                str(source_dir),  # Output directory
+                "-t",
+                "3",  # Retry 3 times
+                "-T",
+                "60",  # Timeout 60 seconds
+                "--progress=bar:force",  # Show progress
+            ],
+            capture_output=False,
+        )
 
-                # Create task for this file
-                task_id = progress.add_task(f"[green]{filename[:50]}", total=0)
+        # Clean up input file
+        input_file.unlink(missing_ok=True)
 
-                # Submit download
-                future = executor.submit(
-                    download_file, client, url, filepath, progress, task_id
-                )
-                future_to_url[future] = (url, task_id)
+        # Check exit code - wget returns:
+        # 0: success (all files downloaded or already exist)
+        # 1: generic error
+        # 2: parse error
+        # 3: file I/O error
+        # 4: network failure
+        # 5: SSL verification failure
+        # 6: authentication failure
+        # 7: protocol error
+        # 8: server error (404, 500, etc.)
+        if result.returncode not in [0, 1]:  # 1 is OK (file exists)
+            raise RuntimeError(
+                f"wget failed with exit code {result.returncode}. "
+                f"This may indicate network issues, server errors, or missing files."
+            )
 
-            # Process completed downloads
-            for future in as_completed(future_to_url):
-                url, task_id = future_to_url[future]
-                filename, success, error = future.result()
-
-                # Update overall progress
-                progress.update(overall_task, advance=1)
-
-                # Remove individual task
-                progress.remove_task(task_id)
-
-                if not success:
-                    progress.console.print(f"[red]✗ {filename} - {error}[/red]")
-                    failed_downloads.append((url, filename))
-
-    client.close()
-    return failed_downloads
+    except subprocess.CalledProcessError as e:
+        # Clean up input file
+        input_file.unlink(missing_ok=True)
+        raise RuntimeError(f"Download failed with exit code {e.returncode}")
+    except KeyboardInterrupt:
+        print("\n\n⚠ Download interrupted by user")
+        # Clean up input file
+        input_file.unlink(missing_ok=True)
+        sys.exit(1)
 
 
 def download_files(source: str) -> None:
@@ -166,15 +137,8 @@ def download_files(source: str) -> None:
 
     source_dir = Path(f"source-store/{source}")
 
-    # Run download with threading for concurrency
-    # Balance between throughput and connection stability
-    failed_downloads = download_all_files(urls, source_dir, max_concurrent=8)
-
-    if failed_downloads:
-        error_msg = f"{len(failed_downloads)} file(s) failed to download:\n"
-        for url, filename in failed_downloads:
-            error_msg += f"  - {filename}: {url}\n"
-        raise RuntimeError(error_msg.strip())
+    # Run download with aria2c (handles concurrency, resume, and retries automatically)
+    download_all_files(urls, source_dir, max_concurrent=8)
 
 
 def main() -> None:
