@@ -234,24 +234,45 @@ class SourceValidator:
             self.warnings.append(f"Could not parse bounds.csv from {tarball_path.name}: {e}")
             return None
 
+    def _find_file_lists(self):
+        """Find all file_list.txt files for this source, including nested ones."""
+        file_lists = []
+
+        # Check for top-level file_list.txt
+        if self.file_list_path.exists():
+            file_lists.append(self.file_list_path)
+
+        # Find nested file_list.txt files
+        for file_list_path in self.source_catalog_dir.rglob("file_list.txt"):
+            if file_list_path != self.file_list_path:
+                file_lists.append(file_list_path)
+
+        return file_lists
+
     def _get_expected_source_prefixes(self):
-        """Extract expected file prefixes from file_list.txt URLs."""
-        if not self.file_list_path.exists():
+        """Extract expected file prefixes from file_list.txt URLs (including nested)."""
+        file_lists = self._find_file_lists()
+
+        if not file_lists:
             return None
 
         try:
-            with open(self.file_list_path) as f:
-                urls = [line.strip() for line in f if line.strip()]
-
             prefixes = []
-            for url in urls:
-                parsed = urlparse(url)
-                path = parsed.path
-                filename = path.split('/')[-1]
+            for file_list_path in file_lists:
+                with open(file_list_path) as f:
+                    urls = [line.strip() for line in f if line.strip() and not line.startswith('#')]
 
-                # Remove extension (.zip, .tar, .gz, etc.)
-                base = filename.split('.')[0]
-                prefixes.append(base)
+                for url in urls:
+                    parsed = urlparse(url)
+                    path = parsed.path
+                    filename = path.split('/')[-1]
+
+                    # Remove extension (.zip, .tar, .gz, etc.)
+                    base = filename.split('.')[0]
+                    prefixes.append(base)
+
+            if self.verbose and len(file_lists) > 1:
+                self.log(f"  Found {len(file_lists)} file_list.txt file(s) with {len(prefixes)} total source files")
 
             return prefixes
         except Exception as e:
