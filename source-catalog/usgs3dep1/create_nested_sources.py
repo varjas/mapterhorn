@@ -8,7 +8,7 @@ Structure: usgs3dep1/w074/n40/
 - De-duplicates files by primary UTM zone for each longitude
 
 Usage:
-    python create_nested_sources.py [--dry-run] [--lon-grouping N] [--lat-grouping N]
+    python create_nested_sources.py [--dry-run] [--lon N] [--lat N]
 
 Examples:
     # Normal run with defaults
@@ -18,10 +18,10 @@ Examples:
     python create_nested_sources.py --dry-run
 
     # Override grouping sizes
-    python create_nested_sources.py --lon-grouping 6 --lat-grouping 2
+    python create_nested_sources.py --lon 6 --lat 2
 
     # Dry run with custom grouping
-    python create_nested_sources.py --dry-run --lon-grouping 3 --lat-grouping 1
+    python create_nested_sources.py --dry-run --lon 3 --lat 1
 """
 
 import json
@@ -33,9 +33,9 @@ import numpy as np
 
 # Default Configuration
 DEFAULT_LON_BAND_GROUPING = (
-    2  # Must be a divisor of 6 (1, 2, 3, or 6) to align with UTM zones
+    1  # Must be a divisor of 6 (1, 2, 3, or 6) to align with UTM zones
 )
-DEFAULT_LAT_BAND_GROUPING = 1  # Any integer value for latitude grouping
+DEFAULT_LAT_BAND_GROUPING = 2  # Any integer value for latitude grouping
 
 # Validate default configuration
 if 6 % DEFAULT_LON_BAND_GROUPING != 0:
@@ -183,16 +183,42 @@ def analyze_distribution(all_directories):
         val = np.percentile(file_counts, p)
         print(f"    {p:2d}th: {val:6.0f} files")
 
-    # Create histogram for file counts
-    print("\n  Histogram (file count):")
-    hist, bin_edges = np.histogram(file_counts, bins=10)
+    # Create standardized histogram for file counts (0-500 in increments of 50)
+    print("\n  Histogram (file count, standardized scale 0-500+):")
     max_bar_width = 40
-    max_count = hist.max()
-    for i, (count, edge) in enumerate(zip(hist, bin_edges[:-1])):
-        next_edge = bin_edges[i + 1]
+    file_count_bins = list(range(0, 501, 50))  # [0, 50, 100, ..., 500]
+
+    # Create histogram with custom bins
+    hist_counts = []
+    for i in range(len(file_count_bins) - 1):
+        lower = file_count_bins[i]
+        upper = file_count_bins[i + 1]
+        count = np.sum((file_counts >= lower) & (file_counts < upper))
+        hist_counts.append(count)
+
+    # Add overflow bin for 500+
+    overflow_count = np.sum(file_counts >= 500)
+    hist_counts.append(overflow_count)
+
+    # Find max for scaling
+    max_count = max(hist_counts) if hist_counts else 1
+
+    # Print histogram
+    for i in range(len(file_count_bins) - 1):
+        lower = file_count_bins[i]
+        upper = file_count_bins[i + 1]
+        count = hist_counts[i]
         bar_width = int((count / max_count) * max_bar_width) if max_count > 0 else 0
         bar = "█" * bar_width
-        print(f"    {edge:6.0f} - {next_edge:6.0f}: {bar} ({count})")
+        print(f"    {lower:3d} - {upper:3d}: {bar} ({count})")
+
+    # Print overflow bin
+    if overflow_count > 0:
+        bar_width = (
+            int((overflow_count / max_count) * max_bar_width) if max_count > 0 else 0
+        )
+        bar = "█" * bar_width
+        print(f"    500+     : {bar} ({overflow_count})")
 
     # Size distribution
     print("\n📊 Size Distribution (GiB):")
@@ -208,15 +234,45 @@ def analyze_distribution(all_directories):
         val = np.percentile(sizes_gib, p)
         print(f"    {p:2d}th: {val:6.2f} GiB")
 
-    # Create histogram for sizes
-    print("\n  Histogram (size in GiB):")
-    hist, bin_edges = np.histogram(sizes_gib, bins=10)
-    max_count = hist.max()
-    for i, (count, edge) in enumerate(zip(hist, bin_edges[:-1])):
-        next_edge = bin_edges[i + 1]
-        bar_width = int((count / max_count) * max_bar_width) if max_count > 0 else 0
+    # Create standardized histogram for sizes (0-200 GiB in increments of 20)
+    print("\n  Histogram (size in GiB, standardized scale 0-200+):")
+    size_bins = list(range(0, 201, 20))  # [0, 20, 40, ..., 200]
+
+    # Create histogram with custom bins
+    hist_counts_size = []
+    for i in range(len(size_bins) - 1):
+        lower = size_bins[i]
+        upper = size_bins[i + 1]
+        count = np.sum((sizes_gib >= lower) & (sizes_gib < upper))
+        hist_counts_size.append(count)
+
+    # Add overflow bin for 200+
+    overflow_count_size = np.sum(sizes_gib >= 200)
+    hist_counts_size.append(overflow_count_size)
+
+    # Find max for scaling
+    max_count_size = max(hist_counts_size) if hist_counts_size else 1
+
+    # Print histogram
+    for i in range(len(size_bins) - 1):
+        lower = size_bins[i]
+        upper = size_bins[i + 1]
+        count = hist_counts_size[i]
+        bar_width = (
+            int((count / max_count_size) * max_bar_width) if max_count_size > 0 else 0
+        )
         bar = "█" * bar_width
-        print(f"    {edge:6.2f} - {next_edge:6.2f}: {bar} ({count})")
+        print(f"    {lower:3d} - {upper:3d}: {bar} ({count})")
+
+    # Print overflow bin
+    if overflow_count_size > 0:
+        bar_width = (
+            int((overflow_count_size / max_count_size) * max_bar_width)
+            if max_count_size > 0
+            else 0
+        )
+        bar = "█" * bar_width
+        print(f"    200+     : {bar} ({overflow_count_size})")
 
     # Quartile analysis
     print("\n📈 Quartile Breakdown:")
@@ -336,10 +392,10 @@ Examples:
   python create_nested_sources.py --dry-run
   
   # Override grouping sizes
-  python create_nested_sources.py --lon-grouping 6 --lat-grouping 2
+  python create_nested_sources.py --lon 6 --lat 2
   
   # Dry run with custom grouping
-  python create_nested_sources.py --dry-run --lon-grouping 3 --lat-grouping 1
+  python create_nested_sources.py --dry-run --lon 3 --lat 1
         """,
     )
     parser.add_argument(
@@ -348,14 +404,14 @@ Examples:
         help="Preview metrics without creating directories or files",
     )
     parser.add_argument(
-        "--lon-grouping",
+        "--lon",
         type=int,
         default=DEFAULT_LON_BAND_GROUPING,
         metavar="N",
         help=f"Longitude grouping in degrees (must be divisor of 6: 1, 2, 3, or 6). Default: {DEFAULT_LON_BAND_GROUPING}",
     )
     parser.add_argument(
-        "--lat-grouping",
+        "--lat",
         type=int,
         default=DEFAULT_LAT_BAND_GROUPING,
         metavar="N",
@@ -365,19 +421,15 @@ Examples:
     args = parser.parse_args()
 
     # Validate longitude grouping
-    if 6 % args.lon_grouping != 0:
-        parser.error(
-            f"--lon-grouping must be a divisor of 6 (1, 2, 3, or 6), got {args.lon_grouping}"
-        )
+    if 6 % args.lon != 0:
+        parser.error(f"--lon must be a divisor of 6 (1, 2, 3, or 6), got {args.lon}")
 
     # Validate latitude grouping
-    if args.lat_grouping < 1:
-        parser.error(
-            f"--lat-grouping must be a positive integer, got {args.lat_grouping}"
-        )
+    if args.lat < 1:
+        parser.error(f"--lat must be a positive integer, got {args.lat}")
 
-    LON_BAND_GROUPING = args.lon_grouping
-    LAT_BAND_GROUPING = args.lat_grouping
+    LON_BAND_GROUPING = args.lon
+    LAT_BAND_GROUPING = args.lat
     DRY_RUN = args.dry_run
 
     script_dir = Path(__file__).parent
@@ -643,7 +695,7 @@ default:
     else:
         print("\nTo create these directories:")
         print(
-            f"  python {Path(__file__).name} --lon-grouping {LON_BAND_GROUPING} --lat-grouping {LAT_BAND_GROUPING}"
+            f"  python {Path(__file__).name} --lon {LON_BAND_GROUPING} --lat {LAT_BAND_GROUPING}"
         )
     print("=" * 60)
 
