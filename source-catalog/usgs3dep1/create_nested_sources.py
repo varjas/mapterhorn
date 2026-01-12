@@ -15,6 +15,7 @@ import json
 import math
 from pathlib import Path
 from collections import defaultdict
+import numpy as np
 
 # Configuration
 LON_BAND_GROUPING = 2  # Must be a divisor of 6 (1, 2, 3, or 6) to align with UTM zones
@@ -22,7 +23,10 @@ LAT_BAND_GROUPING = 1  # Any integer value for latitude grouping
 
 # Validate configuration
 if 6 % LON_BAND_GROUPING != 0:
-    raise ValueError(f"LON_BAND_GROUPING must be a divisor of 6 (1, 2, 3, or 6), got {LON_BAND_GROUPING}")
+    raise ValueError(
+        f"LON_BAND_GROUPING must be a divisor of 6 (1, 2, 3, or 6), got {LON_BAND_GROUPING}"
+    )
+
 
 # UTM zone boundaries (for Northern hemisphere)
 # UTM zones are 6° wide, centered on meridians
@@ -42,6 +46,7 @@ def get_primary_utm_zone(lon_deg):
     # NAD83 UTM North zones: EPSG:269XX where XX is zone
     epsg_code = f"EPSG:269{zone:02d}"
     return epsg_code
+
 
 def get_utm_aligned_lon_group(lon_deg, grouping_size):
     """
@@ -77,17 +82,20 @@ def get_utm_aligned_lon_group(lon_deg, grouping_size):
     else:
         return f"w{abs(group_boundary):03d}"
 
+
 def parse_lon_band(lon_band):
     """Parse longitude band string to degrees (e.g., 'w074' -> -74)"""
     direction = lon_band[0]
     value = int(lon_band[1:])
-    return -value if direction == 'w' else value
+    return -value if direction == "w" else value
+
 
 def parse_lat_band(lat_band):
     """Parse latitude band string to degrees (e.g., 'n40' -> 40)"""
     direction = lat_band[0]
     value = int(lat_band[1:])
-    return value if direction == 'n' else -value
+    return value if direction == "n" else -value
+
 
 def group_band_name(band_value, is_longitude, grouping_size):
     """
@@ -114,6 +122,7 @@ def group_band_name(band_value, is_longitude, grouping_size):
         else:
             return f"s{abs(grouped_value):02d}"
 
+
 def get_friendly_location(lon_group, lat_group):
     """Create human-readable location description"""
     lon_deg = abs(int(lon_group[1:]))
@@ -126,6 +135,176 @@ def get_friendly_location(lon_group, lat_group):
     lat_range = f"{lat_deg}-{lat_deg + LAT_BAND_GROUPING}°{lat_dir}"
 
     return f"{lat_range}, {lon_range}"
+
+
+def analyze_distribution(all_directories):
+    """
+    Analyze and display distribution statistics for file count and size across grid cells.
+    """
+    if not all_directories:
+        return
+
+    # Extract metrics
+    file_counts = np.array([d["file_count"] for d in all_directories])
+    sizes_gib = np.array([d["size_gib"] for d in all_directories])
+
+    print("\n" + "=" * 60)
+    print("DISTRIBUTION ANALYSIS")
+    print("=" * 60)
+
+    # File count distribution
+    print("\n📊 File Count Distribution:")
+    print("-" * 60)
+    print(f"  Total grid cells: {len(file_counts)}")
+    print(f"  Mean:             {np.mean(file_counts):.1f} files")
+    print(f"  Median:           {np.median(file_counts):.0f} files")
+    print(f"  Std Dev:          {np.std(file_counts):.1f} files")
+    print(f"  Min:              {np.min(file_counts)} files")
+    print(f"  Max:              {np.max(file_counts)} files")
+    print("\n  Percentiles:")
+    percentiles = [10, 25, 50, 75, 90, 95, 99]
+    for p in percentiles:
+        val = np.percentile(file_counts, p)
+        print(f"    {p:2d}th: {val:6.0f} files")
+
+    # Create histogram for file counts
+    print("\n  Histogram (file count):")
+    hist, bin_edges = np.histogram(file_counts, bins=10)
+    max_bar_width = 40
+    max_count = hist.max()
+    for i, (count, edge) in enumerate(zip(hist, bin_edges[:-1])):
+        next_edge = bin_edges[i + 1]
+        bar_width = int((count / max_count) * max_bar_width) if max_count > 0 else 0
+        bar = "█" * bar_width
+        print(f"    {edge:6.0f} - {next_edge:6.0f}: {bar} ({count})")
+
+    # Size distribution
+    print("\n📊 Size Distribution (GiB):")
+    print("-" * 60)
+    print(f"  Total grid cells: {len(sizes_gib)}")
+    print(f"  Mean:             {np.mean(sizes_gib):.2f} GiB")
+    print(f"  Median:           {np.median(sizes_gib):.2f} GiB")
+    print(f"  Std Dev:          {np.std(sizes_gib):.2f} GiB")
+    print(f"  Min:              {np.min(sizes_gib):.2f} GiB")
+    print(f"  Max:              {np.max(sizes_gib):.2f} GiB")
+    print("\n  Percentiles:")
+    for p in percentiles:
+        val = np.percentile(sizes_gib, p)
+        print(f"    {p:2d}th: {val:6.2f} GiB")
+
+    # Create histogram for sizes
+    print("\n  Histogram (size in GiB):")
+    hist, bin_edges = np.histogram(sizes_gib, bins=10)
+    max_count = hist.max()
+    for i, (count, edge) in enumerate(zip(hist, bin_edges[:-1])):
+        next_edge = bin_edges[i + 1]
+        bar_width = int((count / max_count) * max_bar_width) if max_count > 0 else 0
+        bar = "█" * bar_width
+        print(f"    {edge:6.2f} - {next_edge:6.2f}: {bar} ({count})")
+
+    # Quartile analysis
+    print("\n📈 Quartile Breakdown:")
+    print("-" * 60)
+    q1_files = np.percentile(file_counts, 25)
+    q2_files = np.percentile(file_counts, 50)
+    q3_files = np.percentile(file_counts, 75)
+
+    q1_size = np.percentile(sizes_gib, 25)
+    q2_size = np.percentile(sizes_gib, 50)
+    q3_size = np.percentile(sizes_gib, 75)
+
+    q1_count = np.sum(file_counts <= q1_files)
+    q2_count = np.sum((file_counts > q1_files) & (file_counts <= q2_files))
+    q3_count = np.sum((file_counts > q2_files) & (file_counts <= q3_files))
+    q4_count = np.sum(file_counts > q3_files)
+
+    print("  By File Count:")
+    print(f"    Q1 (≤{q1_files:.0f} files):      {q1_count} grid cells")
+    print(f"    Q2 ({q1_files:.0f}-{q2_files:.0f} files):  {q2_count} grid cells")
+    print(f"    Q3 ({q2_files:.0f}-{q3_files:.0f} files):  {q3_count} grid cells")
+    print(f"    Q4 (>{q3_files:.0f} files):      {q4_count} grid cells")
+
+    q1_count_size = np.sum(sizes_gib <= q1_size)
+    q2_count_size = np.sum((sizes_gib > q1_size) & (sizes_gib <= q2_size))
+    q3_count_size = np.sum((sizes_gib > q2_size) & (sizes_gib <= q3_size))
+    q4_count_size = np.sum(sizes_gib > q3_size)
+
+    print("\n  By Size:")
+    print(f"    Q1 (≤{q1_size:.2f} GiB):      {q1_count_size} grid cells")
+    print(f"    Q2 ({q1_size:.2f}-{q2_size:.2f} GiB):  {q2_count_size} grid cells")
+    print(f"    Q3 ({q2_size:.2f}-{q3_size:.2f} GiB):  {q3_count_size} grid cells")
+    print(f"    Q4 (>{q3_size:.2f} GiB):      {q4_count_size} grid cells")
+
+    # Outlier analysis (using IQR method)
+    print("\n🔍 Outlier Analysis (IQR method):")
+    print("-" * 60)
+
+    # File count outliers
+    q1_fc = np.percentile(file_counts, 25)
+    q3_fc = np.percentile(file_counts, 75)
+    iqr_fc = q3_fc - q1_fc
+    lower_bound_fc = q1_fc - 1.5 * iqr_fc
+    upper_bound_fc = q3_fc + 1.5 * iqr_fc
+    outliers_fc = [
+        d
+        for d in all_directories
+        if d["file_count"] < lower_bound_fc or d["file_count"] > upper_bound_fc
+    ]
+
+    print("  File Count Outliers:")
+    print(f"    IQR: {iqr_fc:.1f}")
+    print(f"    Bounds: [{lower_bound_fc:.1f}, {upper_bound_fc:.1f}]")
+    print(f"    Outliers: {len(outliers_fc)} grid cells")
+    if outliers_fc:
+        print("    Top outliers by file count:")
+        for d in sorted(outliers_fc, key=lambda x: x["file_count"], reverse=True)[:5]:
+            print(
+                f"      {d['path']:20s} - {d['file_count']:4d} files, {d['size_gib']:6.2f} GiB"
+            )
+
+    # Size outliers
+    q1_sz = np.percentile(sizes_gib, 25)
+    q3_sz = np.percentile(sizes_gib, 75)
+    iqr_sz = q3_sz - q1_sz
+    lower_bound_sz = q1_sz - 1.5 * iqr_sz
+    upper_bound_sz = q3_sz + 1.5 * iqr_sz
+    outliers_sz = [
+        d
+        for d in all_directories
+        if d["size_gib"] < lower_bound_sz or d["size_gib"] > upper_bound_sz
+    ]
+
+    print("\n  Size Outliers:")
+    print(f"    IQR: {iqr_sz:.2f} GiB")
+    print(f"    Bounds: [{lower_bound_sz:.2f}, {upper_bound_sz:.2f}] GiB")
+    print(f"    Outliers: {len(outliers_sz)} grid cells")
+    if outliers_sz:
+        print("    Top outliers by size:")
+        for d in sorted(outliers_sz, key=lambda x: x["size_gib"], reverse=True)[:5]:
+            print(
+                f"      {d['path']:20s} - {d['file_count']:4d} files, {d['size_gib']:6.2f} GiB"
+            )
+
+    # Correlation analysis
+    print("\n📉 Correlation Analysis:")
+    print("-" * 60)
+    correlation = np.corrcoef(file_counts, sizes_gib)[0, 1]
+    print(f"  File Count vs Size correlation: {correlation:.3f}")
+    if correlation > 0.8:
+        print("  → Strong positive correlation (size scales linearly with file count)")
+    elif correlation > 0.5:
+        print("  → Moderate positive correlation")
+    else:
+        print("  → Weak correlation (file sizes vary significantly)")
+
+    # Average file size per grid cell
+    avg_file_sizes = sizes_gib / file_counts * 1024  # Convert to MiB
+    print("\n  Average file size per grid cell:")
+    print(f"    Mean:   {np.mean(avg_file_sizes):.1f} MiB")
+    print(f"    Median: {np.median(avg_file_sizes):.1f} MiB")
+    print(f"    Min:    {np.min(avg_file_sizes):.1f} MiB")
+    print(f"    Max:    {np.max(avg_file_sizes):.1f} MiB")
+
 
 def main():
     script_dir = Path(__file__).parent
@@ -148,13 +327,15 @@ def main():
     print(f"  Longitude bands aligned to UTM boundaries (no mixed CRS)\n")
 
     # Group files by lon/lat grid (with grouping and de-duplication)
-    grid_data = defaultdict(lambda: {
-        "files": [],
-        "total_bytes": 0,
-        "crs_codes": set(),
-        "lon_group": None,
-        "lat_group": None
-    })
+    grid_data = defaultdict(
+        lambda: {
+            "files": [],
+            "total_bytes": 0,
+            "crs_codes": set(),
+            "lon_group": None,
+            "lat_group": None,
+        }
+    )
 
     # First pass: collect all files with their metadata
     file_metadata = []  # (url, lon_deg, lat_deg, epsg_code, size)
@@ -167,13 +348,16 @@ def main():
                 lat_deg = parse_lat_band(lat_band)
 
                 for file_url in lat_data["files"]:
-                    file_metadata.append({
-                        "url": file_url,
-                        "lon_deg": lon_deg,
-                        "lat_deg": lat_deg,
-                        "epsg_code": epsg_code,
-                        "size": lat_data["bytes"] / len(lat_data["files"])  # Approximate per-file size
-                    })
+                    file_metadata.append(
+                        {
+                            "url": file_url,
+                            "lon_deg": lon_deg,
+                            "lat_deg": lat_deg,
+                            "epsg_code": epsg_code,
+                            "size": lat_data["bytes"]
+                            / len(lat_data["files"]),  # Approximate per-file size
+                        }
+                    )
 
     # Second pass: de-duplicate and group
     # Track which files we've already added to avoid duplicates
@@ -198,8 +382,12 @@ def main():
         seen_files.add(url)
 
         # Generate grouped names
-        lon_group = get_utm_aligned_lon_group(lon_deg, LON_BAND_GROUPING)  # UTM-aligned longitude
-        lat_group = group_band_name(lat_deg, False, LAT_BAND_GROUPING)  # Standard lat grouping
+        lon_group = get_utm_aligned_lon_group(
+            lon_deg, LON_BAND_GROUPING
+        )  # UTM-aligned longitude
+        lat_group = group_band_name(
+            lat_deg, False, LAT_BAND_GROUPING
+        )  # Standard lat grouping
 
         # Create grid key
         grid_key = f"{lon_group}/{lat_group}"
@@ -230,8 +418,8 @@ def main():
         # Write file_list.txt
         file_list_path = source_dir / "file_list.txt"
         unique_files = sorted(set(data["files"]))
-        with open(file_list_path, 'w') as f:
-            f.write('\n'.join(unique_files))
+        with open(file_list_path, "w") as f:
+            f.write("\n".join(unique_files))
 
         # Get location for display and metadata
         location = get_friendly_location(lon_group, lat_group)
@@ -255,7 +443,7 @@ default:
     uv run python source_polygonize.py {source_name} 32
     uv run python source_create_tarball.py {source_name}
 """
-        with open(justfile_path, 'w') as f:
+        with open(justfile_path, "w") as f:
             f.write(justfile_content)
 
         # Create symlink to LICENSE if it exists
@@ -267,8 +455,8 @@ default:
 
         # Stats
         file_count = len(unique_files)
-        size_gib = data['total_bytes'] / (1024**3)
-        crs_list = sorted(data['crs_codes'])
+        size_gib = data["total_bytes"] / (1024**3)
+        crs_list = sorted(data["crs_codes"])
 
         # Track directory stats
         dir_info = {
@@ -276,7 +464,7 @@ default:
             "location": location,
             "crs_list": crs_list,
             "file_count": file_count,
-            "size_gib": size_gib
+            "size_gib": size_gib,
         }
         all_directories.append(dir_info)
 
@@ -293,15 +481,15 @@ default:
 
         total_sources += 1
         total_files += file_count
-        total_bytes += data['total_bytes']
+        total_bytes += data["total_bytes"]
 
     # Summary
     total_gib = total_bytes / (1024**3)
     total_tib = total_bytes / (1024**4)
 
-    print("="*60)
+    print("=" * 60)
     print("SUMMARY")
-    print("="*60)
+    print("=" * 60)
     print(f"Grid grouping: {LON_BAND_GROUPING}° lon, {LAT_BAND_GROUPING}° lat")
     print(f"Total grid cells created: {total_sources}")
     print(f"Total files: {total_files:,}")
@@ -310,22 +498,29 @@ default:
 
     # Report mixed CRS directories
     if mixed_crs_directories:
-        print(f"\n⚠️  WARNING: {len(mixed_crs_directories)} directories contain multiple CRS:")
-        print("="*60)
+        print(
+            f"\n⚠️  WARNING: {len(mixed_crs_directories)} directories contain multiple CRS:"
+        )
+        print("=" * 60)
         for item in mixed_crs_directories:
             print(f"  {item['path']}/")
             print(f"    CRS: {', '.join(item['crs_list'])}")
             print(f"    Files: {item['file_count']}, Size: {item['size_gib']:.2f} GiB")
-        print("="*60)
+        print("=" * 60)
         print("This indicates a potential issue with UTM zone alignment.")
         print("Expected: Each directory should contain only one CRS.")
     else:
         print(f"\n✓ All directories contain single CRS")
 
+    # Run distribution analysis
+    analyze_distribution(all_directories)
+
     # Show largest directories by file count
     print(f"\nLargest directories by file count:")
-    print("="*60)
-    largest_by_files = sorted(all_directories, key=lambda x: x['file_count'], reverse=True)[:2]
+    print("=" * 60)
+    largest_by_files = sorted(
+        all_directories, key=lambda x: x["file_count"], reverse=True
+    )[:2]
     for i, item in enumerate(largest_by_files, 1):
         print(f"{i}. {item['path']}/")
         print(f"   Location: {item['location']}")
@@ -334,8 +529,10 @@ default:
 
     # Show largest directories by size
     print(f"\nLargest directories by size:")
-    print("="*60)
-    largest_by_size = sorted(all_directories, key=lambda x: x['size_gib'], reverse=True)[:2]
+    print("=" * 60)
+    largest_by_size = sorted(
+        all_directories, key=lambda x: x["size_gib"], reverse=True
+    )[:2]
     for i, item in enumerate(largest_by_size, 1):
         print(f"{i}. {item['path']}/")
         print(f"   Location: {item['location']}")
@@ -348,7 +545,8 @@ default:
     print(f"3. Run pipeline for each source:")
     print(f"   cd mapterhorn/pipelines")
     print(f"   just ../source-catalog/usgs3dep1/w074/n40/")
-    print("="*60)
+    print("=" * 60)
+
 
 if __name__ == "__main__":
     main()
