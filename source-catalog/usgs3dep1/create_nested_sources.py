@@ -17,8 +17,8 @@ from pathlib import Path
 from collections import defaultdict
 
 # Configuration
-LON_BAND_GROUPING = 1  # Must be a divisor of 6 (1, 2, 3, or 6) to align with UTM zones
-LAT_BAND_GROUPING = 3  # Any integer value for latitude grouping
+LON_BAND_GROUPING = 2  # Must be a divisor of 6 (1, 2, 3, or 6) to align with UTM zones
+LAT_BAND_GROUPING = 1  # Any integer value for latitude grouping
 
 # Validate configuration
 if 6 % LON_BAND_GROUPING != 0:
@@ -236,19 +236,12 @@ def main():
         # Get location for display and metadata
         location = get_friendly_location(lon_group, lat_group)
 
-        # Create metadata.json
-        metadata_path = source_dir / "metadata.json"
-        if not metadata_path.exists():
-            template = {
-                "name": f"USGS 3DEP 1m - {location}",
-                "website": "https://www.sciencebase.gov/catalog/item/4f70aa9fe4b058caae3f8de5",
-                "license": "Public Domain (U.S. Government Work)",
-                "producer": "U.S. Geological Survey",
-                "resolution": 1.0,
-                "access_year": 2025
-            }
-            with open(metadata_path, 'w') as f:
-                json.dump(template, f, indent=2)
+        # Create symlink to metadata.json
+        metadata_src = script_dir / "metadata.json"
+        metadata_dst = source_dir / "metadata.json"
+        if metadata_src.exists() and not metadata_dst.exists():
+            # Create relative symlink (../../metadata.json from nested dir)
+            metadata_dst.symlink_to("../../metadata.json")
 
         # Create Justfile
         justfile_path = source_dir / "Justfile"
@@ -309,6 +302,7 @@ default:
     print("="*60)
     print("SUMMARY")
     print("="*60)
+    print(f"Grid grouping: {LON_BAND_GROUPING}° lon, {LAT_BAND_GROUPING}° lat")
     print(f"Total grid cells created: {total_sources}")
     print(f"Total files: {total_files:,}")
     print(f"Total size: {total_gib:.2f} GiB ({total_tib:.2f} TiB)")
