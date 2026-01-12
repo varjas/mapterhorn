@@ -5,13 +5,14 @@ import subprocess
 from pathlib import Path
 
 
-def download_all_files(urls: list[str], source_dir: Path) -> None:
+def download_all_files(urls: list[str], source_dir: Path, max_threads: int = 5) -> None:
     """
     Download all files using wget with automatic resume support.
 
     Args:
         urls: List of URLs to download.
         source_dir: Directory to save downloaded files.
+        max_threads: Maximum number of concurrent download threads (default: 5).
     """
 
     input_file = source_dir / ".download_urls.txt"
@@ -23,7 +24,7 @@ def download_all_files(urls: list[str], source_dir: Path) -> None:
             filename = Path(url.split('?')[0]).name
             expected_files.append(source_dir / filename)
 
-    print(f"Starting download of {len(urls)} file(s)...\n")
+    print(f"Starting download of {len(urls)} file(s) with {max_threads} parallel threads...\n")
 
     try:
         result = subprocess.run(
@@ -38,6 +39,8 @@ def download_all_files(urls: list[str], source_dir: Path) -> None:
                 "3",
                 "-T",
                 "60",
+                "--max-threads",
+                str(max_threads),
                 "--progress=bar:force",
             ],
             capture_output=False,
@@ -69,12 +72,13 @@ def download_all_files(urls: list[str], source_dir: Path) -> None:
         sys.exit(1)
 
 
-def download_files(source: str) -> None:
+def download_files(source: str, max_threads: int = 5) -> None:
     """
     Download all files listed in the source's file_list.txt.
 
     Args:
         source: The name of the source (used to locate file_list.txt and determine save location).
+        max_threads: Maximum number of concurrent download threads (default: 5).
 
     Raises:
         FileNotFoundError: If the file_list.txt does not exist for the source.
@@ -102,7 +106,7 @@ def download_files(source: str) -> None:
 
     source_dir = Path(f"source-store/{source}")
 
-    download_all_files(urls, source_dir)
+    download_all_files(urls, source_dir, max_threads)
 
 
 def main() -> None:
@@ -114,22 +118,40 @@ def main() -> None:
     Command-line arguments:
         source_name: The name of the source to download. This should match a directory
             in the source-catalog folder that contains a file_list.txt.
+        --max-threads: Optional. Maximum number of concurrent download threads (default: 5).
 
     Usage:
-        uv run python source_download.py <source_name>
+        uv run python source_download.py <source_name> [--max-threads N]
     """
     if len(sys.argv) < 2:
         print("ERROR: source argument missing")
-        print("Usage: uv run python source_download.py <source_name>")
+        print("Usage: uv run python source_download.py <source_name> [--max-threads N]")
         sys.exit(1)
 
     source = sys.argv[1]
+    max_threads = 5
+
+    if len(sys.argv) > 2:
+        if sys.argv[2] == "--max-threads" and len(sys.argv) > 3:
+            try:
+                max_threads = int(sys.argv[3])
+                if max_threads < 1:
+                    print("ERROR: --max-threads must be >= 1")
+                    sys.exit(1)
+            except ValueError:
+                print("ERROR: --max-threads must be a valid integer")
+                sys.exit(1)
+        else:
+            print("ERROR: Invalid arguments")
+            print("Usage: uv run python source_download.py <source_name> [--max-threads N]")
+            sys.exit(1)
+
     print(f"Downloading {source}...\n")
 
     utils.create_folder(f"source-store/{source}/")
 
     try:
-        download_files(source)
+        download_files(source, max_threads)
         print(f"\n✓ SUCCESS: All files for '{source}' downloaded successfully")
     except Exception as error:
         print(f"\n✗ FAILED: {str(error)}")
