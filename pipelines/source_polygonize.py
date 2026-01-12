@@ -42,7 +42,8 @@ def merge_source(source):
             print(f'{j:_} / {len(filenames):_}')
         command = f'ogr2ogr -f GPKG -update -append {merged_filepath} polygon-store/{source}/{filename}.gpkg -nln out -append -addfields'
         utils.run_command(command, silent=True)
-    union_filepath = f'polygon-store/{source}.gpkg'
+    flattened_source = source.replace('/', '_')
+    union_filepath = f'polygon-store/{flattened_source}.gpkg'
     if os.path.isfile(union_filepath):
         os.remove(union_filepath)
     utils.run_command(f'ogr2ogr -f GPKG {union_filepath} {merged_filepath} -nln union -dialect sqlite -sql "SELECT ST_Union(ST_MakeValid(geom)) AS geom FROM out"', silent=False)
