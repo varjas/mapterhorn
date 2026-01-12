@@ -8,23 +8,39 @@ Structure: usgs3dep1/w074/n40/
 - De-duplicates files by primary UTM zone for each longitude
 
 Usage:
+    python create_nested_sources.py [--dry-run] [--lon-grouping N] [--lat-grouping N]
+
+Examples:
+    # Normal run with defaults
     python create_nested_sources.py
+
+    # Dry run to preview metrics without creating directories
+    python create_nested_sources.py --dry-run
+
+    # Override grouping sizes
+    python create_nested_sources.py --lon-grouping 6 --lat-grouping 2
+
+    # Dry run with custom grouping
+    python create_nested_sources.py --dry-run --lon-grouping 3 --lat-grouping 1
 """
 
 import json
 import math
+import argparse
 from pathlib import Path
 from collections import defaultdict
 import numpy as np
 
-# Configuration
-LON_BAND_GROUPING = 2  # Must be a divisor of 6 (1, 2, 3, or 6) to align with UTM zones
-LAT_BAND_GROUPING = 1  # Any integer value for latitude grouping
+# Default Configuration
+DEFAULT_LON_BAND_GROUPING = (
+    2  # Must be a divisor of 6 (1, 2, 3, or 6) to align with UTM zones
+)
+DEFAULT_LAT_BAND_GROUPING = 1  # Any integer value for latitude grouping
 
-# Validate configuration
-if 6 % LON_BAND_GROUPING != 0:
+# Validate default configuration
+if 6 % DEFAULT_LON_BAND_GROUPING != 0:
     raise ValueError(
-        f"LON_BAND_GROUPING must be a divisor of 6 (1, 2, 3, or 6), got {LON_BAND_GROUPING}"
+        f"DEFAULT_LON_BAND_GROUPING must be a divisor of 6 (1, 2, 3, or 6), got {DEFAULT_LON_BAND_GROUPING}"
     )
 
 
@@ -123,7 +139,7 @@ def group_band_name(band_value, is_longitude, grouping_size):
             return f"s{abs(grouped_value):02d}"
 
 
-def get_friendly_location(lon_group, lat_group):
+def get_friendly_location(lon_group, lat_group, lon_grouping, lat_grouping):
     """Create human-readable location description"""
     lon_deg = abs(int(lon_group[1:]))
     lat_deg = abs(int(lat_group[1:]))
@@ -131,8 +147,8 @@ def get_friendly_location(lon_group, lat_group):
     lat_dir = "N" if lat_group.startswith("n") else "S"
 
     # Longitude is UTM-zone aligned
-    lon_range = f"{lon_deg}-{lon_deg + LON_BAND_GROUPING}°{lon_dir}"
-    lat_range = f"{lat_deg}-{lat_deg + LAT_BAND_GROUPING}°{lat_dir}"
+    lon_range = f"{lon_deg}-{lon_deg + lon_grouping}°{lon_dir}"
+    lat_range = f"{lat_deg}-{lat_deg + lat_grouping}°{lat_dir}"
 
     return f"{lat_range}, {lon_range}"
 
@@ -307,6 +323,63 @@ def analyze_distribution(all_directories):
 
 
 def main():
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(
+        description="Create nested source directories organized by lon/lat grid with de-duplication.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Normal run with defaults
+  python create_nested_sources.py
+  
+  # Dry run to preview metrics without creating directories
+  python create_nested_sources.py --dry-run
+  
+  # Override grouping sizes
+  python create_nested_sources.py --lon-grouping 6 --lat-grouping 2
+  
+  # Dry run with custom grouping
+  python create_nested_sources.py --dry-run --lon-grouping 3 --lat-grouping 1
+        """,
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Preview metrics without creating directories or files",
+    )
+    parser.add_argument(
+        "--lon-grouping",
+        type=int,
+        default=DEFAULT_LON_BAND_GROUPING,
+        metavar="N",
+        help=f"Longitude grouping in degrees (must be divisor of 6: 1, 2, 3, or 6). Default: {DEFAULT_LON_BAND_GROUPING}",
+    )
+    parser.add_argument(
+        "--lat-grouping",
+        type=int,
+        default=DEFAULT_LAT_BAND_GROUPING,
+        metavar="N",
+        help=f"Latitude grouping in degrees (any positive integer). Default: {DEFAULT_LAT_BAND_GROUPING}",
+    )
+
+    args = parser.parse_args()
+
+    # Validate longitude grouping
+    if 6 % args.lon_grouping != 0:
+        parser.error(
+            f"--lon-grouping must be a divisor of 6 (1, 2, 3, or 6), got {args.lon_grouping}"
+        )
+
+    # Validate latitude grouping
+    if args.lat_grouping < 1:
+        parser.error(
+            f"--lat-grouping must be a positive integer, got {args.lat_grouping}"
+        )
+
+    LON_BAND_GROUPING = args.lon_grouping
+    LAT_BAND_GROUPING = args.lat_grouping
+    DRY_RUN = args.dry_run
+
     script_dir = Path(__file__).parent
 
     # Read CRS/lon/lat-organized file data
@@ -319,12 +392,20 @@ def main():
     with open(grid_file) as f:
         crs_data = json.load(f)
 
-    print("Creating nested source directories with de-duplication...\n")
-    print(f"Configuration:")
+    if DRY_RUN:
+        print("\n" + "=" * 60)
+        print("DRY RUN MODE - No directories will be created")
+        print("=" * 60)
+
+    print("\nAnalyzing nested source directories with de-duplication...\n")
+    print("Configuration:")
     print(f"  Longitude grouping: {LON_BAND_GROUPING}° bands (UTM-zone aligned)")
     print(f"  Latitude grouping: {LAT_BAND_GROUPING}° bands")
-    print(f"  Structure: usgs3dep1/<lon>/<lat>/")
-    print(f"  Longitude bands aligned to UTM boundaries (no mixed CRS)\n")
+    print("  Structure: usgs3dep1/<lon>/<lat>/")
+    print("  Longitude bands aligned to UTM boundaries (no mixed CRS)")
+    print(
+        f"  Mode: {'DRY RUN (preview only)' if DRY_RUN else 'LIVE (creating directories)'}\n"
+    )
 
     # Group files by lon/lat grid (with grouping and de-duplication)
     grid_data = defaultdict(
@@ -413,21 +494,25 @@ def main():
         # Create nested directory structure
         lon_dir = script_dir / lon_group
         source_dir = lon_dir / lat_group
-        source_dir.mkdir(parents=True, exist_ok=True)
+        if not DRY_RUN:
+            source_dir.mkdir(parents=True, exist_ok=True)
 
         # Write file_list.txt
         file_list_path = source_dir / "file_list.txt"
         unique_files = sorted(set(data["files"]))
-        with open(file_list_path, "w") as f:
-            f.write("\n".join(unique_files))
+        if not DRY_RUN:
+            with open(file_list_path, "w") as f:
+                f.write("\n".join(unique_files))
 
         # Get location for display and metadata
-        location = get_friendly_location(lon_group, lat_group)
+        location = get_friendly_location(
+            lon_group, lat_group, LON_BAND_GROUPING, LAT_BAND_GROUPING
+        )
 
         # Create symlink to metadata.json
         metadata_src = script_dir / "metadata.json"
         metadata_dst = source_dir / "metadata.json"
-        if metadata_src.exists() and not metadata_dst.exists():
+        if metadata_src.exists() and not metadata_dst.exists() and not DRY_RUN:
             # Create relative symlink (../../metadata.json from nested dir)
             metadata_dst.symlink_to("../../metadata.json")
 
@@ -443,13 +528,14 @@ default:
     uv run python source_polygonize.py {source_name} 32
     uv run python source_create_tarball.py {source_name}
 """
-        with open(justfile_path, "w") as f:
-            f.write(justfile_content)
+        if not DRY_RUN:
+            with open(justfile_path, "w") as f:
+                f.write(justfile_content)
 
         # Create symlink to LICENSE if it exists
         license_src = script_dir / "LICENSE.pdf"
         license_dst = source_dir / "LICENSE.pdf"
-        if license_src.exists() and not license_dst.exists():
+        if license_src.exists() and not license_dst.exists() and not DRY_RUN:
             # Create relative symlink (../../LICENSE.pdf from nested dir)
             license_dst.symlink_to("../../LICENSE.pdf")
 
@@ -472,7 +558,8 @@ default:
         if len(crs_list) > 1:
             mixed_crs_directories.append(dir_info)
 
-        print(f"✓ Created {lon_group}/{lat_group}/")
+        action_verb = "Analyzed" if DRY_RUN else "Created"
+        print(f"✓ {action_verb} {lon_group}/{lat_group}/")
         print(f"    Location: {location}")
         print(f"    CRS: {', '.join(crs_list)}")
         print(f"    Files: {file_count}")
@@ -490,11 +577,16 @@ default:
     print("=" * 60)
     print("SUMMARY")
     print("=" * 60)
+    print(f"Mode: {'DRY RUN' if DRY_RUN else 'LIVE'}")
     print(f"Grid grouping: {LON_BAND_GROUPING}° lon, {LAT_BAND_GROUPING}° lat")
-    print(f"Total grid cells created: {total_sources}")
+    print(f"Total grid cells {'analyzed' if DRY_RUN else 'created'}: {total_sources}")
     print(f"Total files: {total_files:,}")
     print(f"Total size: {total_gib:.2f} GiB ({total_tib:.2f} TiB)")
-    print(f"\nNested structure created in: {script_dir}/")
+    if not DRY_RUN:
+        print(f"\nNested structure created in: {script_dir}/")
+    else:
+        print(f"\nNested structure would be created in: {script_dir}/")
+        print(f"(Run without --dry-run to actually create directories)")
 
     # Report mixed CRS directories
     if mixed_crs_directories:
@@ -505,7 +597,9 @@ default:
         for item in mixed_crs_directories:
             print(f"  {item['path']}/")
             print(f"    CRS: {', '.join(item['crs_list'])}")
-            print(f"    Files: {item['file_count']}, Size: {item['size_gib']:.2f} GiB")
+            print(
+                f"    Files: {item['file_count']:,}, Size: {item['size_gib']:.2f} GiB"
+            )
         print("=" * 60)
         print("This indicates a potential issue with UTM zone alignment.")
         print("Expected: Each directory should contain only one CRS.")
@@ -539,12 +633,18 @@ default:
         print(f"   Files: {item['file_count']:,}, Size: {item['size_gib']:.2f} GiB")
         print(f"   CRS: {', '.join(item['crs_list'])}")
 
-    print(f"\nNext steps:")
-    print(f"1. Review the created directories")
-    print(f"2. Edit metadata.json files if needed")
-    print(f"3. Run pipeline for each source:")
-    print(f"   cd mapterhorn/pipelines")
-    print(f"   just ../source-catalog/usgs3dep1/w074/n40/")
+    if not DRY_RUN:
+        print("\nNext steps:")
+        print("1. Review the created directories")
+        print("2. Edit metadata.json files if needed")
+        print("3. Run pipeline for each source:")
+        print("   cd mapterhorn/pipelines")
+        print("   just ../source-catalog/usgs3dep1/w074/n40/")
+    else:
+        print("\nTo create these directories:")
+        print(
+            f"  python {Path(__file__).name} --lon-grouping {LON_BAND_GROUPING} --lat-grouping {LAT_BAND_GROUPING}"
+        )
     print("=" * 60)
 
 
