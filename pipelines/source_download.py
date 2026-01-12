@@ -3,131 +3,61 @@ import utils
 import sys
 from pathlib import Path
 from urllib.parse import urlparse
-import asyncio
-import aiohttp
-from aiohttp import ClientTimeout, TCPConnector
-from tqdm.asyncio import tqdm
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import httpx
+from rich.progress import (
+    Progress,
+    BarColumn,
+    DownloadColumn,
+    TransferSpeedColumn,
+    TimeRemainingColumn,
+    TextColumn,
+)
 
 
-class ProgressCounter:
-    """Async-safe counter for tracking download progress."""
-
-    def __init__(self, total: int):
-        self.completed = 0
-        self.total = total
-        self.lock = asyncio.Lock()
-
-    async def increment(self) -> int:
-        """Increment the counter and return the new value."""
-        async with self.lock:
-            self.completed += 1
-            return self.completed
-
-
-class PositionManager:
-    """Manages progress bar positions for concurrent downloads."""
-
-    def __init__(self, max_positions: int, start_position: int = 2):
-        self.available = list(range(start_position, start_position + max_positions))
-        self.lock = asyncio.Lock()
-
-    async def acquire(self) -> int:
-        """Get an available position."""
-        async with self.lock:
-            if self.available:
-                return self.available.pop(0)
-            return 2  # Fallback to position 2
-
-    async def release(self, position: int) -> None:
-        """Release a position back to the pool."""
-        async with self.lock:
-            if position not in self.available:
-                self.available.append(position)
-                self.available.sort()
-
-
-async def download_file(
-    session: aiohttp.ClientSession,
-    url: str,
-    filepath: Path,
-    counter: ProgressCounter,
-    semaphore: asyncio.Semaphore,
-    position_manager: PositionManager,
-    overall_progress: tqdm = None,
+def download_file(
+    client: httpx.Client, url: str, filepath: Path, progress: Progress, task_id
 ) -> tuple[str, bool, str | None]:
     """
-    Download a single file asynchronously with progress tracking.
+    Download a single file with progress tracking.
 
     Args:
-        session: aiohttp ClientSession for making requests.
+        client: httpx Client for making requests.
         url: The URL to download from.
         filepath: The local path where the file will be saved.
-        counter: Progress counter for tracking completion.
-        semaphore: Semaphore to limit concurrent downloads.
-        position_manager: Manager for assigning progress bar positions.
-        overall_progress: Optional tqdm progress bar for overall progress.
+        progress: Rich Progress instance.
+        task_id: Task ID for this download in the progress display.
 
     Returns:
         Tuple of (filename, success, error_message)
     """
     filename = Path(urlparse(url).path).name
 
-    async with semaphore:
-        # Acquire a position for this download's progress bar
-        position = await position_manager.acquire()
-        file_progress = None
+    try:
+        with client.stream("GET", url, follow_redirects=True) as response:
+            response.raise_for_status()
 
-        try:
-            # Download file with streaming
-            async with session.get(url) as response:
-                response.raise_for_status()
+            # Get file size
+            total_size = int(response.headers.get("content-length", 0))
+            progress.update(task_id, total=total_size)
 
-                # Get file size for individual progress bar
-                total_size = int(response.headers.get("content-length", 0))
+            # Download with progress updates
+            with open(filepath, "wb") as f:
+                for chunk in response.iter_bytes(chunk_size=1024 * 1024):  # 1MB chunks
+                    f.write(chunk)
+                    progress.update(task_id, advance=len(chunk))
 
-                # Create individual progress bar for this file
-                file_progress = tqdm(
-                    total=total_size,
-                    unit="B",
-                    unit_scale=True,
-                    unit_divisor=1024,
-                    desc=filename[:40],  # Truncate long filenames
-                    position=position,
-                    leave=False,  # Remove bar when complete
-                )
+        return filename, True, None
 
-                # Write file in chunks with progress updates
-                chunk_size = 1024 * 1024  # 1MB chunks
-
-                with open(filepath, "wb") as f:
-                    async for chunk in response.content.iter_chunked(chunk_size):
-                        f.write(chunk)
-
-                        # Update both progress bars
-                        if file_progress:
-                            file_progress.update(len(chunk))
-                        if overall_progress:
-                            overall_progress.update(len(chunk))
-
-            await counter.increment()
-            if file_progress:
-                file_progress.close()
-            await position_manager.release(position)
-            return filename, True, None
-
-        except Exception as e:
-            await counter.increment()
-            if file_progress:
-                file_progress.close()
-            await position_manager.release(position)
-            return filename, False, str(e)
+    except Exception as e:
+        return filename, False, str(e)
 
 
-async def download_all_files(
+def download_all_files(
     urls: list[str], source_dir: Path, max_concurrent: int = 8
 ) -> list[tuple[str, str]]:
     """
-    Download all files concurrently using asyncio.
+    Download all files concurrently with beautiful progress display.
 
     Args:
         urls: List of URLs to download.
@@ -137,83 +67,66 @@ async def download_all_files(
     Returns:
         List of (url, filename) tuples for failed downloads.
     """
-    total_urls = len(urls)
-    counter = ProgressCounter(total_urls)
     failed_downloads = []
 
-    # Configure connection limits and timeouts
-    # Longer connect timeout for high-concurrency scenarios
-    timeout = ClientTimeout(total=300, connect=60, sock_read=90)
-    connector = TCPConnector(
-        limit=max_concurrent,  # Total connection limit
-        limit_per_host=max_concurrent,  # Match total limit for single-host downloads
-        ttl_dns_cache=300,  # DNS cache TTL
-        force_close=False,  # Keep connections alive for reuse
-        enable_cleanup_closed=True,  # Clean up closed connections
+    # Create httpx client with connection pooling
+    client = httpx.Client(
+        timeout=httpx.Timeout(60.0, connect=30.0),
+        limits=httpx.Limits(
+            max_connections=max_concurrent, max_keepalive_connections=max_concurrent
+        ),
+        follow_redirects=True,
     )
 
-    # Semaphore to limit concurrent downloads
-    semaphore = asyncio.Semaphore(max_concurrent)
+    # Create rich progress display
+    with Progress(
+        TextColumn("[bold blue]{task.description}", justify="left"),
+        BarColumn(bar_width=None),
+        "[progress.percentage]{task.percentage:>3.1f}%",
+        "•",
+        DownloadColumn(),
+        "•",
+        TransferSpeedColumn(),
+        "•",
+        TimeRemainingColumn(),
+        expand=True,
+    ) as progress:
+        # Add overall task
+        overall_task = progress.add_task("[cyan]Overall Progress", total=len(urls))
 
-    async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
-        print("Starting downloads...\n")
-
-        # Don't use overall progress bar - it causes issues with tqdm when total is unknown
-        # Individual file progress bars will show the download activity
-        overall_progress = None
-
-        # Create file count progress bar (position 0)
-        file_count_progress = tqdm(
-            total=total_urls,
-            unit="file",
-            desc="Files Completed",
-            position=0,
-            leave=True,
-        )
-
-        # Create position manager for progress bars (start at position 1 since we removed overall progress)
-        position_manager = PositionManager(max_concurrent, start_position=1)
-
-        try:
-            # Create all download tasks
-            tasks = []
+        # Create thread pool for concurrent downloads
+        with ThreadPoolExecutor(max_workers=max_concurrent) as executor:
+            # Submit all download tasks
+            future_to_url = {}
             for url in urls:
                 filename = Path(urlparse(url).path).name
                 filepath = source_dir / filename
-                task = asyncio.create_task(
-                    download_file(
-                        session,
-                        url,
-                        filepath,
-                        counter,
-                        semaphore,
-                        position_manager,
-                        overall_progress,
-                    )
+
+                # Create task for this file
+                task_id = progress.add_task(f"[green]{filename[:50]}", total=0)
+
+                # Submit download
+                future = executor.submit(
+                    download_file, client, url, filepath, progress, task_id
                 )
-                tasks.append((url, task))
+                future_to_url[future] = (url, task_id)
 
-            # Process results as they complete
-            for coro in asyncio.as_completed([task for _, task in tasks]):
-                try:
-                    result = await coro
-                    filename, success, error = result
-                    file_count_progress.update(1)
+            # Process completed downloads
+            for future in as_completed(future_to_url):
+                url, task_id = future_to_url[future]
+                filename, success, error = future.result()
 
-                    if not success:
-                        tqdm.write(f"✗ {filename} - {error}")
-                        # Find the URL for this filename
-                        for url, _ in tasks:
-                            if Path(urlparse(url).path).name == filename:
-                                failed_downloads.append((url, filename))
-                                break
-                except Exception as e:
-                    file_count_progress.update(1)
-                    tqdm.write(f"✗ Error - {str(e)}")
+                # Update overall progress
+                progress.update(overall_task, advance=1)
 
-        finally:
-            file_count_progress.close()
+                # Remove individual task
+                progress.remove_task(task_id)
 
+                if not success:
+                    progress.console.print(f"[red]✗ {filename} - {error}[/red]")
+                    failed_downloads.append((url, filename))
+
+    client.close()
     return failed_downloads
 
 
@@ -253,12 +166,9 @@ def download_files(source: str) -> None:
 
     source_dir = Path(f"source-store/{source}")
 
-    # Run async download with high concurrency
+    # Run download with threading for concurrency
     # Balance between throughput and connection stability
-    # Too high causes timeouts, too low wastes bandwidth
-    failed_downloads = asyncio.run(
-        download_all_files(urls, source_dir, max_concurrent=8)
-    )
+    failed_downloads = download_all_files(urls, source_dir, max_concurrent=8)
 
     if failed_downloads:
         error_msg = f"{len(failed_downloads)} file(s) failed to download:\n"
