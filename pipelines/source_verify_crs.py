@@ -9,9 +9,11 @@ import sys
 
 LINE_LIMIT = 88
 
+
 @dataclass
 class Metrics:
     """Metrics for a collection of raster files."""
+
     file_count: int = 0
     total_size_bytes: int = 0
     dimensions: set = field(default_factory=set)
@@ -49,10 +51,12 @@ def print_wkt(wkt):
     """Format WKT string, truncating if too long."""
     if not wkt:
         return print("No CRS defined")
-    return print(f"WKT: {wkt[:LINE_LIMIT - 8]}...")
+    return print(f"WKT: {wkt[: LINE_LIMIT - 8]}...")
+
 
 def print_line_break(symbol="-"):
     print("\n" + symbol * LINE_LIMIT)
+
 
 def print_metrics(crs_data):
     for i, (crs_wkt, data) in enumerate(crs_data.items(), 1):
@@ -78,8 +82,12 @@ def print_metrics(crs_data):
         print(f"Sample files: {files[:3]}")
 
         print(f"Total size: {format_size(metrics.total_size_bytes)}")
-        print(f"Dimensions: {', '.join(f'{w}x{h}' for w, h in sorted(metrics.dimensions))}")
-        print(f"Resolutions: {', '.join(f'{x}x{y}' for x, y in sorted(metrics.resolutions))}")
+        print(
+            f"Dimensions: {', '.join(f'{w}x{h}' for w, h in sorted(metrics.dimensions))}"
+        )
+        print(
+            f"Resolutions: {', '.join(f'{x}x{y}' for x, y in sorted(metrics.resolutions))}"
+        )
         print(f"Data types: {', '.join(sorted(metrics.datatypes))}")
 
         if metrics.min_x != float("inf"):
@@ -87,6 +95,7 @@ def print_metrics(crs_data):
             print(f"Extent (Y): [{metrics.min_y:.2f}, {metrics.max_y:.2f}]")
 
     print_line_break("=")
+
 
 def analyze_files(source_dir):
     crs_data = defaultdict(lambda: {"files": [], "metrics": Metrics()})
@@ -108,6 +117,7 @@ def analyze_files(source_dir):
     print(f"Found {len(crs_data)} unique CRS projection(s)")
 
     return crs_data
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -141,6 +151,7 @@ def main():
             file=sys.stderr,
         )
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()
