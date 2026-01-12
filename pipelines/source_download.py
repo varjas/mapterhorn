@@ -2,47 +2,127 @@ import os
 import utils
 import sys
 from pathlib import Path
-import requests
 from urllib.parse import urlparse
-from concurrent.futures import ThreadPoolExecutor, as_completed
-import threading
+import asyncio
+import aiohttp
+from aiohttp import ClientTimeout, TCPConnector
 
 
 class ProgressCounter:
-    """Thread-safe counter for tracking download progress."""
+    """Async-safe counter for tracking download progress."""
 
     def __init__(self, total: int):
         self.completed = 0
         self.total = total
-        self.lock = threading.Lock()
+        self.lock = asyncio.Lock()
 
-    def increment(self) -> int:
+    async def increment(self) -> int:
         """Increment the counter and return the new value."""
-        with self.lock:
+        async with self.lock:
             self.completed += 1
             return self.completed
 
 
-def download_file(url: str, filepath: Path) -> None:
+async def download_file(
+    session: aiohttp.ClientSession,
+    url: str,
+    filepath: Path,
+    counter: ProgressCounter,
+    semaphore: asyncio.Semaphore,
+) -> tuple[str, bool, str | None]:
     """
-    Download a file from a URL and save it to the specified filepath.
+    Download a single file asynchronously.
 
     Args:
+        session: aiohttp ClientSession for making requests.
         url: The URL to download from.
         filepath: The local path where the file will be saved.
+        counter: Progress counter for tracking completion.
+        semaphore: Semaphore to limit concurrent downloads.
+
+    Returns:
+        Tuple of (filename, success, error_message)
     """
-    head_response = requests.head(url, allow_redirects=True, timeout=30)
-    head_response.raise_for_status()
+    filename = Path(urlparse(url).path).name
 
-    response = requests.get(url, stream=True, timeout=60)
-    response.raise_for_status()
+    async with semaphore:
+        try:
+            # Download file with streaming
+            async with session.get(url) as response:
+                response.raise_for_status()
 
-    downloaded_size = 0
-    with open(filepath, "wb") as f:
-        for chunk in response.iter_content(chunk_size=8192):
-            if chunk:
-                f.write(chunk)
-                downloaded_size += len(chunk)
+                # Write file in chunks (1MB for better performance)
+                chunk_size = 1024 * 1024
+                with open(filepath, "wb") as f:
+                    async for chunk in response.content.iter_chunked(chunk_size):
+                        f.write(chunk)
+
+            await counter.increment()
+            return filename, True, None
+
+        except Exception as e:
+            await counter.increment()
+            return filename, False, str(e)
+
+
+async def download_all_files(
+    urls: list[str], source_dir: Path, max_concurrent: int = 50
+) -> list[tuple[str, str]]:
+    """
+    Download all files concurrently using asyncio.
+
+    Args:
+        urls: List of URLs to download.
+        source_dir: Directory to save downloaded files.
+        max_concurrent: Maximum number of concurrent downloads.
+
+    Returns:
+        List of (url, filename) tuples for failed downloads.
+    """
+    total_urls = len(urls)
+    counter = ProgressCounter(total_urls)
+    failed_downloads = []
+
+    # Configure connection limits and timeouts
+    timeout = ClientTimeout(total=300, connect=30, sock_read=60)
+    connector = TCPConnector(
+        limit=max_concurrent,  # Total connection limit
+        limit_per_host=30,  # Per-host limit to avoid overwhelming servers
+        ttl_dns_cache=300,  # DNS cache TTL
+    )
+
+    # Semaphore to limit concurrent downloads
+    semaphore = asyncio.Semaphore(max_concurrent)
+
+    async with aiohttp.ClientSession(
+        connector=connector, timeout=timeout
+    ) as session:
+        # Create all download tasks
+        tasks = []
+        for url in urls:
+            filename = Path(urlparse(url).path).name
+            filepath = source_dir / filename
+            task = download_file(session, url, filepath, counter, semaphore)
+            tasks.append((url, task))
+
+        # Execute all downloads concurrently
+        results = await asyncio.gather(*[task for _, task in tasks], return_exceptions=True)
+
+        # Process results and print progress
+        for (url, _), result in zip(tasks, results):
+            if isinstance(result, Exception):
+                filename = Path(urlparse(url).path).name
+                print(f"[{counter.completed}/{total_urls}] ✗ {filename} - {str(result)}")
+                failed_downloads.append((url, filename))
+            else:
+                filename, success, error = result
+                if success:
+                    print(f"[{counter.completed}/{total_urls}] ✓ {filename}")
+                else:
+                    print(f"[{counter.completed}/{total_urls}] ✗ {filename} - {error}")
+                    failed_downloads.append((url, filename))
+
+    return failed_downloads
 
 
 def download_files(source: str) -> None:
@@ -55,8 +135,7 @@ def download_files(source: str) -> None:
     Raises:
         FileNotFoundError: If the file_list.txt does not exist for the source.
         ValueError: If no URLs are found in the file_list.txt.
-        requests.exceptions.RequestException: If any HTTP request fails (e.g. connection errors,
-            timeouts, HTTP errors).
+        RuntimeError: If any downloads fail.
     """
     file_list_path = f"../source-catalog/{source}/file_list.txt"
 
@@ -81,31 +160,9 @@ def download_files(source: str) -> None:
     print(f"Found {total_urls} file(s) to download\n")
 
     source_dir = Path(f"source-store/{source}")
-    max_workers = 3
-    counter = ProgressCounter(total_urls)
 
-    def download_with_progress(url: str) -> tuple[str, str, bool]:
-        """Download a file and return status information."""
-        filename = Path(urlparse(url).path).name
-        filepath = source_dir / filename
-        try:
-            download_file(url, filepath)
-            completed = counter.increment()
-            return filename, f"[{completed}/{total_urls}] ✓ {filename}", True
-        except Exception as e:
-            completed = counter.increment()
-            return filename, f"[{completed}/{total_urls}] ✗ {filename} - {str(e)}", False
-
-    failed_downloads = []
-
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = {executor.submit(download_with_progress, url): url for url in urls}
-
-        for future in as_completed(futures):
-            filename, message, success = future.result()
-            print(message)
-            if not success:
-                failed_downloads.append((futures[future], filename))
+    # Run async download with high concurrency (50-100 concurrent downloads)
+    failed_downloads = asyncio.run(download_all_files(urls, source_dir, max_concurrent=50))
 
     if failed_downloads:
         error_msg = f"{len(failed_downloads)} file(s) failed to download:\n"
