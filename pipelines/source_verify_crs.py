@@ -4,6 +4,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 import rasterio
+from rasterio.crs import CRS
 import sys
 
 LINE_LIMIT = 88
@@ -35,8 +36,57 @@ class Metrics:
         self.min_y = min(self.min_y, bounds.bottom)
         self.max_y = max(self.max_y, bounds.top)
 
-def print_line_break():
-    print("\n" + "-" * LINE_LIMIT)
+
+def format_size(size_bytes):
+    for unit in ["B", "KiB", "MiB", "GiB", "TiB"]:
+        if size_bytes < 1024.0:
+            return f"{size_bytes:.2f} {unit}"
+        size_bytes /= 1024.0
+    return f"{size_bytes:.2f} PiB"
+
+
+def print_wkt(wkt):
+    """Format WKT string, truncating if too long."""
+    if not wkt:
+        return print("No CRS defined")
+    return print(f"WKT: {wkt[:LINE_LIMIT - 8]}...")
+
+def print_line_break(symbol="-"):
+    print("\n" + symbol * LINE_LIMIT)
+
+def print_metrics(crs_data):
+    for i, (crs_wkt, data) in enumerate(crs_data.items(), 1):
+        files = data["files"]
+        metrics = data["metrics"]
+
+        print_line_break()
+        print(f"CRS #{i}")
+
+        if crs_wkt:
+            try:
+                crs = CRS.from_wkt(crs_wkt)
+                if crs.to_epsg():
+                    print(f"EPSG Code: {crs.to_epsg()}")
+                if crs.name:
+                    print(f"Name: {crs.name}")
+            except Exception:
+                pass
+
+        print_wkt(crs_wkt)
+
+        print(f"\nFiles: {len(files)}")
+        print(f"Sample files: {files[:3]}")
+
+        print(f"Total size: {format_size(metrics.total_size_bytes)}")
+        print(f"Dimensions: {', '.join(f'{w}x{h}' for w, h in sorted(metrics.dimensions))}")
+        print(f"Resolutions: {', '.join(f'{x}x{y}' for x, y in sorted(metrics.resolutions))}")
+        print(f"Data types: {', '.join(sorted(metrics.datatypes))}")
+
+        if metrics.min_x != float("inf"):
+            print(f"Extent (X): [{metrics.min_x:.2f}, {metrics.max_x:.2f}]")
+            print(f"Extent (Y): [{metrics.min_y:.2f}, {metrics.max_y:.2f}]")
+
+    print_line_break("=")
 
 def analyze_files(source_dir):
     crs_data = defaultdict(lambda: {"files": [], "metrics": Metrics()})
@@ -75,8 +125,8 @@ def main():
         sys.exit(1)
 
     crs_data = analyze_files(source_dir)
+    print_metrics(crs_data)
 
-    print_line_break()
     if len(crs_data) == 0:
         print("✗ ERROR: No files could be checked successfully", file=sys.stderr)
         sys.exit(1)
@@ -91,7 +141,6 @@ def main():
             file=sys.stderr,
         )
         sys.exit(1)
-
 
 if __name__ == "__main__":
     main()
