@@ -4,11 +4,13 @@ Upload processed source datasets to Hugging Face Hub.
 
 This script uploads:
 - Source tarballs (tar-store/{source}*.tar) - supports multiple files
+- MD5 checksums (tar-store/{source}*.tar.md5) - supports multiple files
 - Coverage geopackages (polygon-store/{source}*.gpkg) - supports multiple files
 - Metadata from source-catalog/{source}/metadata.json
 
 For sources with nested structure (e.g., au5/epsg28350), files are named:
 - {source}_{nested_path}.tar (e.g., au5_epsg28350.tar)
+- {source}_{nested_path}.tar.md5 (e.g., au5_epsg28350.tar.md5)
 - {source}_{nested_path}.gpkg (e.g., au5_epsg28350.gpkg)
 
 Usage:
@@ -101,6 +103,12 @@ def upload_source_to_hf(source_id, repo_id, token=None, skip_validation=False):
             f"No geopackage files found matching pattern: {polygon_store_dir}/{source_id}*.gpkg"
         )
 
+    # Find all md5 files that start with the source_id
+    md5_paths = sorted(tar_store_dir.glob(f"{source_id}_*.tar.md5"))
+    main_md5 = tar_store_dir / f"{source_id}.tar.md5"
+    if main_md5.exists():
+        md5_paths.insert(0, main_md5)
+
     print(f"Uploading {source_id} to {repo_id}")
     print(f"  Name: {metadata.get('name', 'N/A')}")
     print(f"  Producer: {metadata.get('producer', 'N/A')}")
@@ -113,6 +121,8 @@ def upload_source_to_hf(source_id, repo_id, token=None, skip_validation=False):
         )
     for gpkg_path in gpkg_paths:
         print(f"  Coverage: {gpkg_path} ({gpkg_path.stat().st_size / 1024:.2f} KB)")
+    for md5_path in md5_paths:
+        print(f"  MD5: {md5_path}")
 
     api = HfApi(token=token)
 
@@ -133,6 +143,15 @@ def upload_source_to_hf(source_id, repo_id, token=None, skip_validation=False):
             CommitOperationAdd(
                 path_in_repo=f"{source_id}/{gpkg_path.name}",
                 path_or_fileobj=str(gpkg_path),
+            )
+        )
+
+    # Add all md5 files
+    for md5_path in md5_paths:
+        operations.append(
+            CommitOperationAdd(
+                path_in_repo=f"{source_id}/{md5_path.name}",
+                path_or_fileobj=str(md5_path),
             )
         )
 
