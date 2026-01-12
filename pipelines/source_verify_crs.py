@@ -6,6 +6,7 @@ from pathlib import Path
 import rasterio
 import sys
 
+LINE_LIMIT = 88
 
 @dataclass
 class Metrics:
@@ -33,6 +34,9 @@ class Metrics:
         self.max_x = max(self.max_x, bounds.right)
         self.min_y = min(self.min_y, bounds.bottom)
         self.max_y = max(self.max_y, bounds.top)
+
+def print_line_break():
+    print("\n" + "-" * LINE_LIMIT)
 
 def analyze_files(source_dir):
     crs_data = defaultdict(lambda: {"files": [], "metrics": Metrics()})
@@ -70,7 +74,23 @@ def main():
         print(f"Error: Source directory not found: {source_dir}", file=sys.stderr)
         sys.exit(1)
 
-    analyze_files(source_dir)
+    crs_data = analyze_files(source_dir)
+
+    print_line_break()
+    if len(crs_data) == 0:
+        print("✗ ERROR: No files could be checked successfully", file=sys.stderr)
+        sys.exit(1)
+    elif len(crs_data) == 1:
+        print("✓ All files use the same CRS projection")
+        sys.exit(0)
+    else:
+        print("✗ ERROR: Multiple CRS projections found", file=sys.stderr)
+        print("\nCannot proceed with mixed CRS projections.", file=sys.stderr)
+        print(
+            "Please ensure all source files use the same coordinate reference system.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
 
 if __name__ == "__main__":
