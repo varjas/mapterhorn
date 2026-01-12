@@ -183,10 +183,11 @@ def analyze_distribution(all_directories):
         val = np.percentile(file_counts, p)
         print(f"    {p:2d}th: {val:6.0f} files")
 
-    # Create standardized histogram for file counts (0-500 in increments of 50)
-    print("\n  Histogram (file count, standardized scale 0-500+):")
+    # Create standardized histogram for file counts
+    print("\n  Histogram (file count):")
     max_bar_width = 40
-    file_count_bins = list(range(0, 501, 50))  # [0, 50, 100, ..., 500]
+    max_file_count_bin = 5000
+    file_count_bins = list(range(0, max_file_count_bin + 1, 500))
 
     # Create histogram with custom bins
     hist_counts = []
@@ -196,8 +197,7 @@ def analyze_distribution(all_directories):
         count = np.sum((file_counts >= lower) & (file_counts < upper))
         hist_counts.append(count)
 
-    # Add overflow bin for 500+
-    overflow_count = np.sum(file_counts >= 500)
+    overflow_count = np.sum(file_counts >= max_file_count_bin)
     hist_counts.append(overflow_count)
 
     # Find max for scaling
@@ -218,7 +218,7 @@ def analyze_distribution(all_directories):
             int((overflow_count / max_count) * max_bar_width) if max_count > 0 else 0
         )
         bar = "█" * bar_width
-        print(f"    500+     : {bar} ({overflow_count})")
+        print(f"    {max_file_count_bin}+     : {bar} ({overflow_count})")
 
     # Size distribution
     print("\n📊 Size Distribution (GiB):")
@@ -235,8 +235,9 @@ def analyze_distribution(all_directories):
         print(f"    {p:2d}th: {val:6.2f} GiB")
 
     # Create standardized histogram for sizes (0-200 GiB in increments of 20)
-    print("\n  Histogram (size in GiB, standardized scale 0-200+):")
-    size_bins = list(range(0, 201, 20))  # [0, 20, 40, ..., 200]
+    print("\n  Histogram (size in GiB):")
+    max_size_bin = 1000
+    size_bins = list(range(0, max_size_bin + 1, 200))
 
     # Create histogram with custom bins
     hist_counts_size = []
@@ -246,8 +247,7 @@ def analyze_distribution(all_directories):
         count = np.sum((sizes_gib >= lower) & (sizes_gib < upper))
         hist_counts_size.append(count)
 
-    # Add overflow bin for 200+
-    overflow_count_size = np.sum(sizes_gib >= 200)
+    overflow_count_size = np.sum(sizes_gib >= max_size_bin)
     hist_counts_size.append(overflow_count_size)
 
     # Find max for scaling
@@ -272,7 +272,7 @@ def analyze_distribution(all_directories):
             else 0
         )
         bar = "█" * bar_width
-        print(f"    200+     : {bar} ({overflow_count_size})")
+        print(f"    {max_size_bin}+     : {bar} ({overflow_count_size})")
 
     # Quartile analysis
     print("\n📈 Quartile Breakdown:")
