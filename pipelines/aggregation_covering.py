@@ -51,11 +51,15 @@ def get_intersecting_tiles_dfs(bounds, tile, zoom):
 
 def get_macrotile_map():
     macrotile_map = {}
-    filepaths = sorted(glob(f'source-store/*/bounds.csv'))
+    # Support both flat (source-store/source/bounds.csv) and nested structures
+    # (source-store/source/nested/path/bounds.csv)
+    filepaths = sorted(glob(f'source-store/**/bounds.csv', recursive=True))
     mercator_resolutions = get_mercator_resolutions(0, 32)
     for filepath in filepaths:
         print(f'reading {filepath}...')
-        source = filepath.split('/')[1]
+        # For nested sources, use the flattened path as source name
+        # e.g., source-store/usgs3dep1/w074/n40/bounds.csv -> usgs3dep1/w074/n40
+        source = filepath.replace('source-store/', '').replace('/bounds.csv', '')
         with open(filepath) as f:
             f.readline() # skip header
             line = f.readline().strip()
