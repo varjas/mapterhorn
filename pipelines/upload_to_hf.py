@@ -3,9 +3,13 @@
 Upload processed source datasets to Hugging Face Hub.
 
 This script uploads:
-- Source tarball (tar-store/{source}.tar)
-- Coverage geopackage (polygon-store/{source}.gpkg)
+- Source tarballs (tar-store/{source}*.tar) - supports multiple files
+- Coverage geopackages (polygon-store/{source}*.gpkg) - supports multiple files
 - Metadata from source-catalog/{source}/metadata.json
+
+For sources with nested structure (e.g., au5/epsg28350), files are named:
+- {source}_{nested_path}.tar (e.g., au5_epsg28350.tar)
+- {source}_{nested_path}.gpkg (e.g., au5_epsg28350.gpkg)
 
 Usage:
     python upload_to_hf.py <source_id> [--repo-id REPO_ID] [--token TOKEN]
