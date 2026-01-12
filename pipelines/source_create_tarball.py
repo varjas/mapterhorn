@@ -1,4 +1,5 @@
 from glob import glob
+from pathlib import Path
 import sys
 import tarfile
 
@@ -14,8 +15,13 @@ def main():
         exit()
 
     utils.create_folder('tar-store/')
+
+    # Flatten nested source paths (e.g., au5/epsg28354 -> au5_epsg28354)
+    flattened_source = source.replace('/', '_')
+    tar_path = Path(f'tar-store/{flattened_source}.tar')
+
     checksum = None
-    with open(f'tar-store/{source}.tar', 'wb') as f:
+    with open(tar_path, 'wb') as f:
         writer = utils.HashWriter(f)
         with tarfile.open(fileobj=writer, mode='w') as tar:
             tar.add(f'../source-catalog/{source}/LICENSE.pdf', 'LICENSE.pdf')
@@ -30,8 +36,11 @@ def main():
                 tar.add(filepath, f'files/{filename}')
         checksum = writer.md5.hexdigest()
 
-    with open(f'tar-store/{source}.tar.md5', 'w') as f:
-        f.write(f'{checksum} {source}.tar\n')
+    with open(f'tar-store/{flattened_source}.tar.md5', 'w') as f:
+        f.write(f'{checksum} {flattened_source}.tar\n')
+
+    print(f'tarball created: {tar_path}')
+    print(f'checksum: {checksum}')
 
 if __name__ == '__main__':
     main()
