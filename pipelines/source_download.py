@@ -2,6 +2,7 @@ import os
 import utils
 import sys
 import subprocess
+import argparse
 from pathlib import Path
 
 
@@ -111,55 +112,51 @@ def main() -> None:
     """
     Main entry point for the source download script.
 
-    Parses command-line arguments and initiates the download process for a specified source.
-
     Command-line arguments:
-        source_name: The name of the source to download. This should match a directory
-            in the source-catalog folder that contains a file_list.txt.
-        --max-threads: Optional. Maximum number of concurrent download threads (default: 5).
+        source: Name of the source to download (required). Must match a directory
+            in ../source-catalog/ that contains a file_list.txt.
+        max_threads: Maximum number of concurrent download threads (optional, default: 5).
+            Must be >= 1.
 
     Usage:
-        uv run python source_download.py <source_name> [--max-threads N]
+        uv run python source_download.py <source>
+        uv run python source_download.py <source> <max_threads>
+
+    Examples:
+        uv run python source_download.py at1
+        uv run python source_download.py at1 10
     """
-    if len(sys.argv) < 2:
-        print("ERROR: source argument missing")
-        print("Usage: uv run python source_download.py <source_name> [--max-threads N]")
-        sys.exit(1)
+    parser = argparse.ArgumentParser(
+        description="Download files for a source from file_list.txt"
+    )
+    parser.add_argument("source", help="Source name (must have file_list.txt)")
+    parser.add_argument(
+        "max_threads",
+        nargs="?",
+        type=int,
+        default=5,
+        help="Maximum concurrent download threads (default: 5)",
+    )
 
-    source = sys.argv[1]
-    max_threads = 5
+    args = parser.parse_args()
 
-    if len(sys.argv) > 2:
-        if sys.argv[2] == "--max-threads" and len(sys.argv) > 3:
-            try:
-                max_threads = int(sys.argv[3])
-                if max_threads < 1:
-                    print("ERROR: --max-threads must be >= 1")
-                    sys.exit(1)
-            except ValueError:
-                print("ERROR: --max-threads must be a valid integer")
-                sys.exit(1)
-        else:
-            print("ERROR: Invalid arguments")
-            print(
-                "Usage: uv run python source_download.py <source_name> [--max-threads N]"
-            )
-            sys.exit(1)
+    if args.max_threads < 1:
+        parser.error("max_threads must be >= 1")
 
-    print(f"Downloading {source}...\n")
+    print(f"Downloading {args.source}...\n")
 
     try:
-        utils.create_folder(f"source-store/{source}/")
+        utils.create_folder(f"source-store/{args.source}/")
 
-        file_list_path = f"../source-catalog/{source}/file_list.txt"
+        file_list_path = f"../source-catalog/{args.source}/file_list.txt"
         urls = parse_file_list(file_list_path)
 
         print(f"Found {len(urls)} file(s) to download\n")
 
-        source_dir = Path(f"source-store/{source}")
-        download_all_files(urls, source_dir, max_threads)
+        source_dir = Path(f"source-store/{args.source}")
+        download_all_files(urls, source_dir, args.max_threads)
 
-        print(f"\n✓ SUCCESS: All files for '{source}' downloaded successfully")
+        print(f"\n✓ SUCCESS: All files for '{args.source}' downloaded successfully")
     except Exception as error:
         print(f"\n✗ FAILED: {str(error)}")
         sys.exit(1)
