@@ -6,14 +6,13 @@ import argparse
 from pathlib import Path
 
 
-def download_all_files(urls: list[str], source_dir: Path, max_threads: int = 5) -> None:
+def download_all_files(urls: list[str], source_dir: Path) -> None:
     """
     Download all files using wget with automatic resume support.
 
     Args:
         urls: List of URLs to download.
         source_dir: Directory to save downloaded files.
-        max_threads: Maximum number of concurrent download threads (default: 5).
     """
 
     input_file = source_dir / ".download_urls.txt"
@@ -25,9 +24,7 @@ def download_all_files(urls: list[str], source_dir: Path, max_threads: int = 5) 
             filename = Path(url.split("?")[0]).name
             expected_files.append(source_dir / filename)
 
-    print(
-        f"Starting download of {len(urls)} file(s) with {max_threads} parallel threads...\n"
-    )
+    print(f"Starting download of {len(urls)} file(s)...\n")
 
     try:
         result = subprocess.run(
@@ -42,8 +39,6 @@ def download_all_files(urls: list[str], source_dir: Path, max_threads: int = 5) 
                 "3",
                 "--timeout",
                 "60",
-                "--max-threads",
-                str(max_threads),
                 "--progress=bar:force",
             ],
             capture_output=False,
@@ -115,33 +110,19 @@ def main() -> None:
     Command-line arguments:
         source: Name of the source to download (required). Must match a directory
             in ../source-catalog/ that contains a file_list.txt.
-        max_threads: Maximum number of concurrent download threads (optional, default: 5).
-            Must be >= 1.
 
     Usage:
         uv run python source_download.py <source>
-        uv run python source_download.py <source> <max_threads>
 
     Examples:
         uv run python source_download.py at1
-        uv run python source_download.py at1 10
     """
     parser = argparse.ArgumentParser(
         description="Download files for a source from file_list.txt"
     )
     parser.add_argument("source", help="Source name (must have file_list.txt)")
-    parser.add_argument(
-        "max_threads",
-        nargs="?",
-        type=int,
-        default=5,
-        help="Maximum concurrent download threads (default: 5)",
-    )
 
     args = parser.parse_args()
-
-    if args.max_threads < 1:
-        parser.error("max_threads must be >= 1")
 
     print(f"Downloading {args.source}...\n")
 
@@ -154,7 +135,7 @@ def main() -> None:
         print(f"Found {len(urls)} file(s) to download\n")
 
         source_dir = Path(f"source-store/{args.source}")
-        download_all_files(urls, source_dir, args.max_threads)
+        download_all_files(urls, source_dir)
 
         print(f"\n✓ SUCCESS: All files for '{args.source}' downloaded successfully")
     except Exception as error:
