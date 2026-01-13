@@ -19,7 +19,6 @@ def main():
     # Flatten nested source paths (e.g., au5/epsg28354 -> au5_epsg28354)
     flattened_source = source.replace('/', '_')
     tar_path = Path(f'tar-store/{flattened_source}.tar')
-    gpkg_path = f'polygon-store/{flattened_source}.gpkg'
 
     checksum = None
     with open(tar_path, 'wb') as f:
@@ -28,7 +27,7 @@ def main():
             tar.add(f'../source-catalog/{source}/LICENSE.pdf', 'LICENSE.pdf')
             tar.add(f'../source-catalog/{source}/metadata.json', 'metadata.json')
             tar.add(f'source-store/{source}/bounds.csv', 'bounds.csv')
-            tar.add(str(gpkg_path), 'coverage.gpkg')
+            tar.add(f'polygon-store/{source}.gpkg', 'coverage.gpkg')
             filepaths = glob(f'source-store/{source}/*.tif')
             for j, filepath in enumerate(filepaths, 1):
                 if j % 1000 == 0:
