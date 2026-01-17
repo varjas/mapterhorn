@@ -7,9 +7,9 @@ This script processes a list of data sources by:
 2. Uploading the resulting tarball to Hugging Face Hub
 
 Usage:
-    python process_and_upload.py --sources au5a au5b au5c
-    python process_and_upload.py --sources-file sources.txt
-    python process_and_upload.py --sources au5a --repo-id myorg/mapterhorn
+    python process_sources.py --sources au5a au5b au5c
+    python process_sources.py --sources-file sources.txt
+    python process_sources.py --sources au5a --repo-id myorg/mapterhorn
 """
 
 import argparse
@@ -31,11 +31,12 @@ DEFAULT_REPO_ID = "varjas/mapterhorn"
 
 class SourceProcessor:
     def __init__(
-        self, repo_id: str, dry_run: bool = False, skip_validation: bool = False
+        self, repo_id: str, dry_run: bool = False, skip_validation: bool = False, skip_upload: bool = False
     ):
         self.repo_id = repo_id
         self.dry_run = dry_run
         self.skip_validation = skip_validation
+        self.skip_upload = skip_upload
         self.pipelines_dir = Path.cwd()
         self.source_catalog_dir = self.pipelines_dir.parent / "source-catalog"
 
@@ -80,6 +81,10 @@ class SourceProcessor:
             return False
 
         print(f"✓ Pipeline completed for {source_id}")
+
+        if self.skip_upload:
+            print(f"⊘ Skipping upload for {source_id}")
+            return True
 
         if not self.upload_to_hf_source(source_id):
             print(f"✗ Upload failed for {source_id}")
@@ -148,6 +153,11 @@ def main():
         action="store_true",
         help="Skip validation checks before upload",
     )
+    parser.add_argument(
+        "--skip-upload",
+        action="store_true",
+        help="Skip upload step (only run processing pipeline)",
+    )
 
     args = parser.parse_args()
 
@@ -176,7 +186,7 @@ def main():
     print(f"\nRepository: {args.repo_id}")
 
     processor = SourceProcessor(
-        repo_id=args.repo_id, dry_run=args.dry_run, skip_validation=args.skip_validation
+        repo_id=args.repo_id, dry_run=args.dry_run, skip_validation=args.skip_validation, skip_upload=args.skip_upload
     )
     processor.process_all(sources)
 
