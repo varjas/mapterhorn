@@ -4,6 +4,7 @@ import os
 
 import utils
 
+
 def main():
     aggregation_id = utils.get_aggregation_ids()[-1]
     filepaths = glob(f'aggregation-store/{aggregation_id}/*-aggregation.csv')
@@ -44,6 +45,7 @@ def main():
 
     with open('bundle-store/attribution.json', 'w') as f:
         json.dump(data, f, indent=2)
+
 
 if __name__ == '__main__':
     main()

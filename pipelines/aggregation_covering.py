@@ -5,6 +5,7 @@ from ulid import ULID
 
 import utils
 
+
 def get_mercator_resolutions(minzoom, maxzoom):
     resolutions = []
     for z in range(minzoom, maxzoom + 1):
@@ -12,6 +13,7 @@ def get_mercator_resolutions(minzoom, maxzoom):
         bounds = mercantile.xy_bounds(tile)
         resolutions.append((bounds.right - bounds.left) / 512)
     return resolutions
+
 
 def bounds_intersect_no_anitmeridian_crossing(a, b):
     left_a, bottom_a, right_a, top_a = a
@@ -23,6 +25,7 @@ def bounds_intersect_no_anitmeridian_crossing(a, b):
     dont_intersect |= top_b <= bottom_a
     return not dont_intersect
 
+
 def split_at_antimeridian(bbox):
     left, bottom, right, top = bbox
     if left < right:
@@ -31,12 +34,14 @@ def split_at_antimeridian(bbox):
     bbox_2 = (utils.X_MIN_3857, bottom, right, top)
     return [bbox_1, bbox_2]
 
+
 def bounds_intersect(a, b):
     for aa in split_at_antimeridian(a):
         for bb in split_at_antimeridian(b):
             if bounds_intersect_no_anitmeridian_crossing(aa, bb):
                 return True
     return False
+
 
 def get_intersecting_tiles_dfs(bounds, tile, zoom):
     tile_bounds = mercantile.xy_bounds(tile)
@@ -49,6 +54,7 @@ def get_intersecting_tiles_dfs(bounds, tile, zoom):
         result += get_intersecting_tiles_dfs(bounds, child, zoom)
     return result
 
+
 def get_macrotile_map():
     macrotile_map = {}
     filepaths = sorted(glob('source-store/*/bounds.csv'))
@@ -57,12 +63,14 @@ def get_macrotile_map():
         print(f'reading {filepath}...')
         source = filepath.split('/')[1]
         with open(filepath) as f:
-            f.readline() # skip header
+            f.readline()  # skip header
             line = f.readline().strip()
             while line != '':
                 filename, left, bottom, right, top, width, height = line.split(',')
                 width, height = [int(a) for a in [width, height]]
-                left, bottom, right, top = [float(a) for a in [left, bottom, right, top]]
+                left, bottom, right, top = [
+                    float(a) for a in [left, bottom, right, top]
+                ]
 
                 multiplier = 2
                 buffer = multiplier * utils.macrotile_buffer_3857
@@ -70,12 +78,16 @@ def get_macrotile_map():
                     left - buffer,
                     bottom - buffer,
                     right + buffer,
-                    top + buffer
+                    top + buffer,
                 )
 
-                tiles = get_intersecting_tiles_dfs(buffered_bounds, mercantile.Tile(x=0, y=0, z=0), utils.macrotile_z)
-                
-                maxzoom = get_smallest_overzoom(left, bottom, right, top, width, height, mercator_resolutions)
+                tiles = get_intersecting_tiles_dfs(
+                    buffered_bounds, mercantile.Tile(x=0, y=0, z=0), utils.macrotile_z
+                )
+
+                maxzoom = get_smallest_overzoom(
+                    left, bottom, right, top, width, height, mercator_resolutions
+                )
 
                 # Use at least a maxzoom of 12 (macrotile_z).
                 # Note that glo30 does not everywhere give a maxzoom of 12. Examples:
@@ -91,22 +103,35 @@ def get_macrotile_map():
                         macrotile_map[(tile.x, tile.y)] = {'sources': {}}
                     if source not in macrotile_map[(tile.x, tile.y)]['sources']:
                         macrotile_map[(tile.x, tile.y)]['sources'][source] = []
-                    macrotile_map[(tile.x, tile.y)]['sources'][source].append({
-                        'filename': filename,
-                        'maxzoom': maxzoom,
-                    })
+                    macrotile_map[(tile.x, tile.y)]['sources'][source].append(
+                        {
+                            'filename': filename,
+                            'maxzoom': maxzoom,
+                        }
+                    )
                 line = f.readline().strip()
 
     return macrotile_map
 
-def get_smallest_overzoom(left, bottom, right, top, width, height, mercator_resolutions):
-    horizontal_resolution = (right - left) / width if left < right else (left - right) / width
+
+def get_smallest_overzoom(
+    left, bottom, right, top, width, height, mercator_resolutions
+):
+    horizontal_resolution = (
+        (right - left) / width if left < right else (left - right) / width
+    )
     vertical_resolution = (top - bottom) / height
 
     for z in range(len(mercator_resolutions)):
-        if mercator_resolutions[z] < horizontal_resolution and mercator_resolutions[z] < vertical_resolution:
+        if (
+            mercator_resolutions[z] < horizontal_resolution
+            and mercator_resolutions[z] < vertical_resolution
+        ):
             return z
-    raise ValueError(f'No overzoom found. (left, bottom, right, top, width, height) = {(left, bottom, right, top, width, height)}')
+    raise ValueError(
+        f'No overzoom found. (left, bottom, right, top, width, height) = {(left, bottom, right, top, width, height)}'
+    )
+
 
 def add_group_ids(macrotile_map):
     for tile_tuple in macrotile_map:
@@ -116,6 +141,7 @@ def add_group_ids(macrotile_map):
                 group_id_parts.add((source, source_item['maxzoom']))
         group_id = tuple(sorted(list(group_id_parts)))
         macrotile_map[tile_tuple]['group_id'] = group_id
+
 
 def get_aggregation_tiles_dfs(candidate, macrotile_map):
     if candidate.z == utils.macrotile_z:
@@ -140,14 +166,21 @@ def get_aggregation_tiles_dfs(candidate, macrotile_map):
         result += get_aggregation_tiles_dfs(child, macrotile_map)
     return result
 
+
 def get_aggregation_tiles(macrotile_map):
     candidates = set({})
     for tile_tuple in macrotile_map.keys():
-        candidates.add(mercantile.parent(mercantile.Tile(x=tile_tuple[0], y=tile_tuple[1], z=utils.macrotile_z), zoom=utils.macrotile_z - utils.num_overviews))
+        candidates.add(
+            mercantile.parent(
+                mercantile.Tile(x=tile_tuple[0], y=tile_tuple[1], z=utils.macrotile_z),
+                zoom=utils.macrotile_z - utils.num_overviews,
+            )
+        )
     aggregation_tiles = []
     for candidate in candidates:
         aggregation_tiles += get_aggregation_tiles_dfs(candidate, macrotile_map)
     return aggregation_tiles
+
 
 def write_aggregation_items(macrotile_map, aggregation_tiles, aggregation_id):
     folder = f'aggregation-store/{aggregation_id}'
@@ -163,22 +196,23 @@ def write_aggregation_items(macrotile_map, aggregation_tiles, aggregation_id):
                 continue
             for source in macrotile_map[tile_tuple]['sources']:
                 for source_item in macrotile_map[tile_tuple]['sources'][source]:
-                    line_tuples.add((
-                        source, 
-                        source_item['filename'], 
-                        str(source_item['maxzoom']
-                    )))
+                    line_tuples.add(
+                        (source, source_item['filename'], str(source_item['maxzoom']))
+                    )
                     child_z = max(child_z, source_item['maxzoom'])
         if len(line_tuples) == 0:
             continue
         line_tuples = sorted(list(line_tuples))
         for line_tuple in line_tuples:
             lines.append(f'{",".join(line_tuple)}\n')
-        with open(f'{folder}/{aggregation_tile.z}-{aggregation_tile.x}-{aggregation_tile.y}-{child_z}-aggregation.csv', 'w') as f:
+        with open(
+            f'{folder}/{aggregation_tile.z}-{aggregation_tile.x}-{aggregation_tile.y}-{child_z}-aggregation.csv',
+            'w',
+        ) as f:
             f.writelines(lines)
 
-def main():
 
+def main():
     print('get_macrotile_map...')
     macrotile_map = get_macrotile_map()
 
@@ -193,6 +227,7 @@ def main():
 
     print('write aggregation items...')
     write_aggregation_items(macrotile_map, aggregation_tiles, aggregation_id)
+
 
 if __name__ == '__main__':
     main()

@@ -5,6 +5,7 @@ import utils
 
 SILENT = False
 
+
 def to_cog(filepath):
     filepath_in = None
     filepath_out = None
@@ -32,9 +33,13 @@ def to_cog(filepath):
     elif filepath.endswith('.txt'):
         filepath_in = filepath
         filepath_out = filepath.replace('.txt', '.tif')
-    
-    utils.run_command(f'GDAL_CACHEMAX=512 gdal_translate -of COG -co BLOCKSIZE=512 -co OVERVIEWS=NONE -co SPARSE_OK=YES -co BIGTIFF=YES -co COMPRESS=LERC -co MAX_Z_ERROR=0.001 "{filepath_in}" "{filepath_out}"', silent=SILENT)
+
+    utils.run_command(
+        f'GDAL_CACHEMAX=512 gdal_translate -of COG -co BLOCKSIZE=512 -co OVERVIEWS=NONE -co SPARSE_OK=YES -co BIGTIFF=YES -co COMPRESS=LERC -co MAX_Z_ERROR=0.001 "{filepath_in}" "{filepath_out}"',
+        silent=SILENT,
+    )
     utils.run_command(f'rm "{filepath_in}"', silent=SILENT)
+
 
 def main():
     source = None
@@ -44,7 +49,7 @@ def main():
     else:
         print('source argument missing')
         exit()
-    
+
     filepaths = []
     filepaths += glob(f'source-store/{source}/*.tif')
     filepaths += glob(f'source-store/{source}/*.TIF')
@@ -59,6 +64,7 @@ def main():
     print(f'num files: {len(filepaths)}')
     with Pool() as pool:
         pool.starmap(to_cog, filepaths)
-            
+
+
 if __name__ == '__main__':
     main()

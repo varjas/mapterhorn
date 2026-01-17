@@ -5,6 +5,7 @@ import time
 import upload
 import utils
 
+
 def get_size_by_filename():
     size_by_filename = {}
     r = requests.get('https://download.mapterhorn.com/download_urls.json')
@@ -13,11 +14,15 @@ def get_size_by_filename():
         size_by_filename[item['name']] = item['size']
     return size_by_filename
 
+
 def get_mirrors():
-    r = requests.get('https://raw.githubusercontent.com/mapterhorn/mapterhorn/refs/heads/main/distribution/mirrors.json')
+    r = requests.get(
+        'https://raw.githubusercontent.com/mapterhorn/mapterhorn/refs/heads/main/distribution/mirrors.json'
+    )
     return json.loads(r.text)
 
-def main():   
+
+def main():
     last_update = int(time.time())
 
     size_by_filename = get_size_by_filename()
@@ -36,8 +41,10 @@ def main():
                 print(f'  found matching filesize on {mirror_name}')
                 items[filename].append(mirror_name)
             else:
-                print(f'  did not find a matching filesize on {mirror_name}: primary={size_by_filename[filename]}, mirror={mirror_size}')
-    
+                print(
+                    f'  did not find a matching filesize on {mirror_name}: primary={size_by_filename[filename]}, mirror={mirror_size}'
+                )
+
     mirrorstatus = {
         'last_update': last_update,
         'mirrors': mirrors,
@@ -57,7 +64,9 @@ def main():
     bucket = 'mapterhorn'
     region = 'auto'
     endpoint = 'https://5521f1c60beed398e82b05eabc341142.r2.cloudflarestorage.com/'
-    upload.upload_local_resource_to_s3(directory, filename, bucket, key, region, endpoint)
+    upload.upload_local_resource_to_s3(
+        directory, filename, bucket, key, region, endpoint
+    )
 
 
 if __name__ == '__main__':

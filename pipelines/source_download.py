@@ -1,6 +1,7 @@
 import utils
 import sys
 
+
 def download_from_internet(source):
     urls = []
     with open(f'../source-catalog/{source}/file_list.txt') as f:
@@ -14,6 +15,7 @@ def download_from_internet(source):
         command = f'cd source-store/{source} && wget --no-verbose --continue "{url}"'
         utils.run_command(command, silent=False)
 
+
 def main():
     source = None
     if len(sys.argv) > 1:
@@ -23,8 +25,9 @@ def main():
         print('source argument missing...')
         exit()
 
-    utils.create_folder( f'source-store/{source}/')
+    utils.create_folder(f'source-store/{source}/')
     download_from_internet(source)
+
 
 if __name__ == '__main__':
     main()

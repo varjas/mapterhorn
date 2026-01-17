@@ -8,6 +8,7 @@ import rasterio
 
 import utils
 
+
 def create_tiles(tmp_folder, aggregation_tile, tiff_filepath, buffer_pixels):
     base_x = aggregation_tile.x
     base_y = aggregation_tile.y
@@ -28,6 +29,7 @@ def create_tiles(tmp_folder, aggregation_tile, tiff_filepath, buffer_pixels):
             out_filepath = f'{tmp_folder}/{z}-{x}-{y}.webp'
             create_tile(i, j, tiff_filepath, out_filepath, buffer_pixels)
 
+
 def create_tile(i, j, tiff_filepath, out_filepath, buffer_pixels):
     col_start = i * 512 + buffer_pixels
     col_end = (i + 1) * 512 + buffer_pixels
@@ -37,21 +39,23 @@ def create_tile(i, j, tiff_filepath, out_filepath, buffer_pixels):
         col_off=col_start,
         row_off=row_start,
         width=col_end - col_start,
-        height=row_end - row_start
+        height=row_end - row_start,
     )
     subdata = None
-    with rasterio.open(tiff_filepath) as src: 
+    with rasterio.open(tiff_filepath) as src:
         subdata = src.read(1, window=window, out_shape=(512, 512))
     subdata[subdata == -9999] = 0
     utils.save_terrarium_tile(subdata, out_filepath)
 
+
 def main(filepath):
     _, aggregation_id, filename = filepath.split('/')
 
-    z, x, y, child_z = [int(a) for a in filename.replace('-aggregation.csv', '').split('-')]
+    z, x, y, child_z = [
+        int(a) for a in filename.replace('-aggregation.csv', '').split('-')
+    ]
 
     tmp_folder = f'aggregation-store/{aggregation_id}/{z}-{x}-{y}-{child_z}-tmp'
-
 
     pmtiles_done_filepath = f'{tmp_folder}/pmtiles-done'
     if os.path.isfile(pmtiles_done_filepath):

@@ -4,6 +4,7 @@ import tarfile
 
 import utils
 
+
 def main():
     source = None
     if len(sys.argv) == 2:
@@ -33,6 +34,6 @@ def main():
     with open(f'tar-store/{source}.tar.md5', 'w') as f:
         f.write(f'{checksum} {source}.tar\n')
 
+
 if __name__ == '__main__':
     main()
-

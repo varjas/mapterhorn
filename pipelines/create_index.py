@@ -24,7 +24,7 @@ with open(out_filepath, 'wb') as f:
             writer.write_tile(tile_id, filepath.encode('utf-8'))
     writer.finalize(
         {
-            'tile_type': TileType.UNKNOWN, 
+            'tile_type': TileType.UNKNOWN,
             'tile_compression': Compression.NONE,
             'min_zoom': 0,
             'max_zoom': 17,

@@ -10,7 +10,11 @@ filepaths += glob(f'aggregation-store/{aggregation_id}/*-downsampling.csv')
 expected_pmtiles_filenames = []
 for filepath in filepaths:
     filename = filepath.split('/')[-1]
-    expected_pmtiles_filenames.append(filename.replace('-aggregation.csv', '.pmtiles').replace('-downsampling.csv', '.pmtiles'))
+    expected_pmtiles_filenames.append(
+        filename.replace('-aggregation.csv', '.pmtiles').replace(
+            '-downsampling.csv', '.pmtiles'
+        )
+    )
 
 pmtiles_filepaths = glob('pmtiles-store/*.pmtiles') + glob('pmtiles-store/*/*.pmtiles')
 

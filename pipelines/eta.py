@@ -6,6 +6,7 @@ import math
 
 import utils
 
+
 def count_children(suffix):
     aggregation_id = utils.get_aggregation_ids()[-1]
     filepaths = glob(f'aggregation-store/{aggregation_id}/*{suffix}')
@@ -18,12 +19,14 @@ def count_children(suffix):
         total_children += num_children
     return total_children
 
+
 def eta(progress, start_time):
     now = datetime.now()
     elapsed = now - start_time
     total_duration = elapsed / progress
     eta = start_time + total_duration
     return eta
+
 
 # kind = 'aggregation'
 kind = 'downsampling'
@@ -34,7 +37,12 @@ children_done = count_children(f'-{kind}.done')
 children_total = count_children(f'-{kind}.csv')
 
 print('time now:', datetime.now())
-print('done, all, percentage:', children_done, children_total, f'{(children_done / children_total):.1%}')
+print(
+    'done, all, percentage:',
+    children_done,
+    children_total,
+    f'{(children_done / children_total):.1%}',
+)
 
 filepaths = glob(f'aggregation-store/{utils.get_aggregation_ids()[-1]}/*-{kind}.done')
 if len(filepaths) == 0:

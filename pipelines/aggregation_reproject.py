@@ -8,6 +8,7 @@ import utils
 
 SILENT = True
 
+
 def create_virtual_raster(tmp_folder, i, source_items):
     source = source_items[0]['source']
     vrt_filepath = f'{tmp_folder}/{i}.vrt'
@@ -21,10 +22,12 @@ def create_virtual_raster(tmp_folder, i, source_items):
         print(out, err)
     return vrt_filepath
 
+
 def get_resolution(zoom):
     tile = mercantile.Tile(x=0, y=0, z=zoom)
     bounds = mercantile.xy_bounds(tile)
     return (bounds.right - bounds.left) / 512
+
 
 def create_warp(vrt_filepath, vrt_3857_filepath, zoom, aggregation_tile, buffer):
     left, bottom, right, top = mercantile.xy_bounds(aggregation_tile)
@@ -44,6 +47,7 @@ def create_warp(vrt_filepath, vrt_3857_filepath, zoom, aggregation_tile, buffer)
     if err.strip() != '':
         raise Exception(f'gdalwarp failed for {vrt_filepath}:\n{out}\n{err}')
 
+
 def translate(in_filepath, out_filepath):
     command = 'GDAL_CACHEMAX=512 gdal_translate -of COG '
     command += '-co BIGTIFF=IF_NEEDED -co ADD_ALPHA=YES -co OVERVIEWS=NONE '
@@ -53,6 +57,7 @@ def translate(in_filepath, out_filepath):
     out, err = utils.run_command(command, silent=SILENT)
     if err.strip() != '':
         raise Exception(f'gdal_translate failed for {in_filepath}:\n{out}\n{err}')
+
 
 def contains_nodata_pixels(filepath):
     with rasterio.env.Env(GDAL_CACHEMAX=64):
@@ -64,18 +69,21 @@ def contains_nodata_pixels(filepath):
                         col_off=col,
                         row_off=row,
                         width=min(block_size, src.width - col),
-                        height=min(block_size, src.height - row)
+                        height=min(block_size, src.height - row),
                     )
                     data = src.read(1, window=window)
                     if -9999 in data:
                         return True
     return False
 
+
 def reproject(filepath):
     _, aggregation_id, filename = filepath.split('/')
 
-    z, x, y, child_z = [int(a) for a in filename.replace('-aggregation.csv', '').split('-')]
-    
+    z, x, y, child_z = [
+        int(a) for a in filename.replace('-aggregation.csv', '').split('-')
+    ]
+
     aggregation_tile = mercantile.Tile(x=x, y=y, z=z)
 
     tmp_folder = f'aggregation-store/{aggregation_id}/{aggregation_tile.z}-{aggregation_tile.x}-{aggregation_tile.y}-{child_z}-tmp'
@@ -100,13 +108,15 @@ def reproject(filepath):
         vrt_filepath = create_virtual_raster(tmp_folder, i, source_items)
         zoom = maxzoom
         vrt_3857_filepath = f'{tmp_folder}/{i}-3857.vrt'
-        create_warp(vrt_filepath, vrt_3857_filepath, zoom, aggregation_tile, buffer_3857_rounded)
+        create_warp(
+            vrt_filepath, vrt_3857_filepath, zoom, aggregation_tile, buffer_3857_rounded
+        )
         out_filepath = f'{tmp_folder}/{i}-3857.tiff'
         translate(vrt_3857_filepath, out_filepath)
 
         if len(grouped_source_items) > 1 and not contains_nodata_pixels(out_filepath):
             break
-    
+
     metadata = {
         'buffer_pixels': buffer_pixels,
     }

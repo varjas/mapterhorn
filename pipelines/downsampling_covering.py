@@ -4,6 +4,7 @@ import mercantile
 
 import utils
 
+
 def get_extents_from_coverings(aggregation_id, zoom):
     extents = []
     filepaths = glob(f'aggregation-store/{aggregation_id}/*-*-*-{zoom}-*.csv')
@@ -14,12 +15,14 @@ def get_extents_from_coverings(aggregation_id, zoom):
         extents.append(mercantile.Tile(x=extent_x, y=extent_y, z=extent_z))
     return extents
 
+
 def get_tile_to_extent_map(extents, zoom):
     tile_to_extent_map = {}
     for extent in extents:
         for child in mercantile.children(extent, zoom=zoom):
             tile_to_extent_map[child] = extent
     return tile_to_extent_map
+
 
 def get_simplified_extents(extents, zoom):
     simplified_extents_unlimited = list(mercantile.simplify(extents))
@@ -30,8 +33,11 @@ def get_simplified_extents(extents, zoom):
         elif unlimited.z >= zoom - utils.num_overviews:
             simplified_extents.append(unlimited)
         else:
-            simplified_extents += list(mercantile.children(unlimited, zoom=zoom - utils.num_overviews))
+            simplified_extents += list(
+                mercantile.children(unlimited, zoom=zoom - utils.num_overviews)
+            )
     return simplified_extents
+
 
 def main():
     aggregation_ids = utils.get_aggregation_ids()
@@ -65,11 +71,14 @@ def main():
                     involved_extents.add(tile_to_extent_map[child])
             lines = ['filename\n']
             for involved_extent in involved_extents:
-                lines.append(f'{involved_extent.z}-{involved_extent.x}-{involved_extent.y}-{child_zoom}.pmtiles\n')
-            
+                lines.append(
+                    f'{involved_extent.z}-{involved_extent.x}-{involved_extent.y}-{child_zoom}.pmtiles\n'
+                )
+
             out_filepath = f'aggregation-store/{aggregation_id}/{simplified_extent.z}-{simplified_extent.x}-{simplified_extent.y}-{child_zoom - 1}-downsampling.csv'
             with open(out_filepath, 'w') as f:
                 f.writelines(lines)
+
 
 if __name__ == '__main__':
     main()
