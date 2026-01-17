@@ -27,11 +27,10 @@ def download_all_files(urls, source_dir):
     try:
         command = (
             f'wget --quiet --continue --input-file "{input_file}" '
-            f'--directory-prefix "{source_dir}" --tries 3 --timeout 60 '
-            '--progress=bar:force'
+            f'--directory-prefix "{source_dir}" --tries 3 --timeout 60'
         )
 
-        stdout, stderr = utils.run_command(command, silent=False)
+        utils.run_command(command, silent=False)
 
         Path(input_file).unlink(missing_ok=True)
 
