@@ -94,14 +94,16 @@ def benchmark_downsampling():
         return data.reshape((512, 2, 512, 2)).mean(axis=(1, 3))
 
     def gpu_version(data):
-        return gpu_utils.gpu_accelerated_reshape_mean(data, (512, 2, 512, 2), (1, 3), force_gpu=True)
+        return gpu_utils.gpu_accelerated_reshape_mean(
+            data, (512, 2, 512, 2), (1, 3), force_gpu=True
+        )
 
     return benchmark_operation(
         "Downsampling (2x2 pixel averaging)",
         cpu_version,
         gpu_version,
         test_data,
-        iterations=10
+        iterations=10,
     )
 
 
@@ -116,14 +118,16 @@ def benchmark_gaussian_filter():
         return cpu_ndimage.gaussian_filter(data, sigma=sigma, truncate=truncate)
 
     def gpu_version(data):
-        return gpu_utils.gpu_gaussian_filter(data, sigma=sigma, truncate=truncate, force_gpu=True)
+        return gpu_utils.gpu_gaussian_filter(
+            data, sigma=sigma, truncate=truncate, force_gpu=True
+        )
 
     return benchmark_operation(
         f"Gaussian Filter (sigma={sigma}, truncate={truncate})",
         cpu_version,
         gpu_version,
         test_data,
-        iterations=5
+        iterations=5,
     )
 
 
@@ -139,11 +143,7 @@ def benchmark_binary_erosion():
         return gpu_utils.gpu_binary_erosion(data, force_gpu=True)
 
     return benchmark_operation(
-        "Binary Erosion",
-        cpu_version,
-        gpu_version,
-        test_data,
-        iterations=10
+        "Binary Erosion", cpu_version, gpu_version, test_data, iterations=10
     )
 
 
@@ -156,7 +156,9 @@ def benchmark_terrarium_encoding():
         data_shifted = data + 32768.0
         red = (data_shifted // 256).astype(np.uint8)
         green = np.floor(data_shifted % 256).astype(np.uint8)
-        blue = (np.floor((data_shifted - np.floor(data_shifted)) * 256)).astype(np.uint8)
+        blue = (np.floor((data_shifted - np.floor(data_shifted)) * 256)).astype(
+            np.uint8
+        )
         return np.stack([red, green, blue], axis=-1)
 
     def gpu_version(data):
@@ -164,11 +166,7 @@ def benchmark_terrarium_encoding():
         return np.stack([red, green, blue], axis=-1)
 
     return benchmark_operation(
-        "Terrarium RGB Encoding",
-        cpu_version,
-        gpu_version,
-        test_data,
-        iterations=10
+        "Terrarium RGB Encoding", cpu_version, gpu_version, test_data, iterations=10
     )
 
 
@@ -182,15 +180,21 @@ def print_summary(results):
         gpu_utils.print_gpu_info()
         print()
 
-        print(f"{'Operation':<40} {'CPU (ms)':<12} {'GPU (ms)':<12} {'Speedup':<10} {'Valid':<8}")
+        print(
+            f"{'Operation':<40} {'CPU (ms)':<12} {'GPU (ms)':<12} {'Speedup':<10} {'Valid':<8}"
+        )
         print(f"{'-'*80}")
 
         for name, (cpu_time, gpu_time, speedup, valid) in results.items():
             if gpu_time is not None:
-                valid_str = '✓' if valid else '✗ ERROR'
-                print(f"{name:<40} {cpu_time*1000:>10.2f}   {gpu_time*1000:>10.2f}   {speedup:>8.2f}x  {valid_str}")
+                valid_str = "✓" if valid else "✗ ERROR"
+                print(
+                    f"{name:<40} {cpu_time*1000:>10.2f}   {gpu_time*1000:>10.2f}   {speedup:>8.2f}x  {valid_str}"
+                )
             else:
-                print(f"{name:<40} {cpu_time*1000:>10.2f}   {'N/A':<10}   {'N/A':<8}  {'N/A'}")
+                print(
+                    f"{name:<40} {cpu_time*1000:>10.2f}   {'N/A':<10}   {'N/A':<8}  {'N/A'}"
+                )
 
         print(f"{'-'*80}")
 
@@ -204,7 +208,9 @@ def print_summary(results):
         if all_valid:
             print("✓ All GPU results match CPU results - correctness validated!")
         else:
-            print("✗ WARNING: Some GPU results do not match CPU - check implementation!")
+            print(
+                "✗ WARNING: Some GPU results do not match CPU - check implementation!"
+            )
 
     else:
         print("GPU not available - only CPU benchmarks were run")
@@ -218,9 +224,9 @@ def print_summary(results):
 
 def main():
     """Run all benchmarks and display results"""
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("Mapterhorn GPU Acceleration Benchmark")
-    print("="*80)
+    print("=" * 80)
 
     if not gpu_utils.is_gpu_available():
         print("\n⚠️  GPU acceleration not available")
@@ -236,28 +242,28 @@ def main():
     results = {}
 
     try:
-        results['Downsampling (2x2 averaging)'] = benchmark_downsampling()
+        results["Downsampling (2x2 averaging)"] = benchmark_downsampling()
     except Exception as e:
         print(f"ERROR in downsampling benchmark: {e}")
-        results['Downsampling (2x2 averaging)'] = (0, None, None, False)
+        results["Downsampling (2x2 averaging)"] = (0, None, None, False)
 
     try:
-        results['Gaussian Filter'] = benchmark_gaussian_filter()
+        results["Gaussian Filter"] = benchmark_gaussian_filter()
     except Exception as e:
         print(f"ERROR in Gaussian filter benchmark: {e}")
-        results['Gaussian Filter'] = (0, None, None, False)
+        results["Gaussian Filter"] = (0, None, None, False)
 
     try:
-        results['Binary Erosion'] = benchmark_binary_erosion()
+        results["Binary Erosion"] = benchmark_binary_erosion()
     except Exception as e:
         print(f"ERROR in binary erosion benchmark: {e}")
-        results['Binary Erosion'] = (0, None, None, False)
+        results["Binary Erosion"] = (0, None, None, False)
 
     try:
-        results['Terrarium Encoding'] = benchmark_terrarium_encoding()
+        results["Terrarium Encoding"] = benchmark_terrarium_encoding()
     except Exception as e:
         print(f"ERROR in terrarium encoding benchmark: {e}")
-        results['Terrarium Encoding'] = (0, None, None, False)
+        results["Terrarium Encoding"] = (0, None, None, False)
 
     print_summary(results)
 
@@ -268,5 +274,5 @@ def main():
             sys.exit(1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
