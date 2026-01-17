@@ -16,10 +16,90 @@ import hashlib
 import sys
 from pathlib import Path
 
-from huggingface_hub import hf_hub_download
+from huggingface_hub import (
+    HfApi,
+    get_hf_file_metadata,
+    hf_hub_download,
+    hf_hub_url,
+    snapshot_download,
+)
 
 
 DEFAULT_REPO_ID = "varjas/mapterhorn"
+
+
+def format_bytes(size: int) -> str:
+    """Format bytes as human-readable size."""
+    for unit in ["B", "KB", "MB", "GB", "TB"]:
+        if size < 1024.0:
+            return f"{size:.2f} {unit}"
+        size /= 1024.0
+    return f"{size:.2f} PB"
+
+
+def get_file_size(repo_id: str, filename: str) -> int:
+    """Get file size from Hugging Face Hub without downloading."""
+    try:
+        url = hf_hub_url(repo_id=repo_id, filename=filename, repo_type="dataset")
+        metadata = get_hf_file_metadata(url)
+        return metadata.size
+    except Exception:
+        return 0
+
+
+def get_directory_info(repo_id: str, path: str) -> dict:
+    """Get info about files in a directory on Hugging Face Hub."""
+    try:
+        api = HfApi()
+        files = api.list_repo_files(repo_id=repo_id, repo_type="dataset")
+
+        dir_files = [f for f in files if f.startswith(path.rstrip("/") + "/")]
+
+        if not dir_files:
+            return {"exists": False, "files": [], "total_size": 0}
+
+        total_size = 0
+        for file_path in dir_files:
+            size = get_file_size(repo_id, file_path)
+            total_size += size
+
+        return {"exists": True, "files": dir_files, "total_size": total_size}
+    except Exception:
+        return {"exists": False, "files": [], "total_size": 0}
+
+
+def check_total_size(sources: list[str], repo_id: str) -> dict:
+    """Check total download size for all sources."""
+    print("Checking file sizes...")
+
+    sizes = {"items": {}, "total": 0, "missing": [], "is_directory": {}}
+
+    for source_id in sources:
+        is_dir = "/" in source_id or source_id.endswith("/")
+        sizes["is_directory"][source_id] = is_dir
+
+        if is_dir:
+            dir_info = get_directory_info(repo_id, source_id)
+            if dir_info["exists"]:
+                sizes["items"][source_id] = dir_info["total_size"]
+                sizes["total"] += dir_info["total_size"]
+            else:
+                sizes["missing"].append(source_id)
+                sizes["items"][source_id] = 0
+        else:
+            tar_filename = f"{source_id}.tar"
+            md5_filename = f"{source_id}.tar.md5"
+
+            tar_size = get_file_size(repo_id, tar_filename)
+            md5_size = get_file_size(repo_id, md5_filename)
+
+            if tar_size == 0:
+                sizes["missing"].append(source_id)
+
+            sizes["items"][source_id] = tar_size + md5_size
+            sizes["total"] += tar_size + md5_size
+
+    return sizes
 
 
 def compute_md5(file_path: Path) -> str:
@@ -50,6 +130,41 @@ def verify_checksum(tar_file: Path, md5_file: Path) -> bool:
         return False
 
 
+def download_directory(
+    source_id: str,
+    repo_id: str,
+    output_dir: str = "tar-store",
+) -> bool:
+    """
+    Download an entire directory from Hugging Face Hub.
+
+    Args:
+        source_id: Directory path to download
+        repo_id: Hugging Face repository ID
+        output_dir: Directory to save downloads
+
+    Returns:
+        True if download succeeded, False otherwise
+    """
+    try:
+        path = source_id.rstrip("/")
+        print(f"Downloading directory {path}/ from {repo_id}...")
+
+        snapshot_download(
+            repo_id=repo_id,
+            repo_type="dataset",
+            allow_patterns=f"{path}/*",
+            local_dir=output_dir,
+            local_dir_use_symlinks=False,
+        )
+        print(f"✓ Downloaded directory {path}/")
+        return True
+
+    except Exception as e:
+        print(f"Error downloading directory from Hugging Face: {e}")
+        return False
+
+
 def download_from_hf(
     source_id: str,
     repo_id: str,
@@ -59,13 +174,18 @@ def download_from_hf(
     Download a tarball and its MD5 checksum from Hugging Face Hub, then verify.
 
     Args:
-        source_id: Identifier for the source (used to find tar files)
+        source_id: Identifier for the source (file or directory)
         repo_id: Hugging Face repository ID (e.g., 'username/dataset')
         output_dir: Directory to save downloads (default: 'tar-store')
 
     Returns:
         True if download and verification succeeded, False otherwise
     """
+    is_dir = "/" in source_id or source_id.endswith("/")
+
+    if is_dir:
+        return download_directory(source_id, repo_id, output_dir)
+
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
 
@@ -133,6 +253,12 @@ def main():
         default="tar-store",
         help="Directory to save downloads (default: tar-store)",
     )
+    parser.add_argument(
+        "--yes",
+        "-y",
+        action="store_true",
+        help="Skip confirmation prompt",
+    )
 
     args = parser.parse_args()
 
@@ -157,6 +283,40 @@ def main():
         print(f"  - {source}")
     print(f"\nRepository: {args.repo_id}")
     print(f"Output directory: {args.output_dir}\n")
+
+    sizes = check_total_size(sources, args.repo_id)
+
+    print(f"\n{'=' * 60}")
+    print("Download size summary:")
+    print(f"{'=' * 60}")
+
+    for source_id in sources:
+        size = sizes["items"].get(source_id, 0)
+        is_dir = sizes["is_directory"].get(source_id, False)
+        type_label = "dir" if is_dir else "file"
+
+        if size > 0:
+            print(f"  {source_id} ({type_label}): {format_bytes(size)}")
+        else:
+            print(f"  {source_id} ({type_label}): NOT FOUND")
+
+    print(f"\nTotal download size: {format_bytes(sizes['total'])}")
+
+    if sizes["missing"]:
+        print(f"\nWarning: {len(sizes['missing'])} source(s) not found on Hub:")
+        for source_id in sizes["missing"]:
+            print(f"  - {source_id}")
+
+    if not args.yes:
+        print(f"\n{'=' * 60}")
+        response = input("Proceed with download? [y/N]: ").strip().lower()
+        if response not in ["y", "yes"]:
+            print("Download cancelled.")
+            sys.exit(0)
+
+    print(f"\n{'=' * 60}")
+    print("Starting downloads...")
+    print(f"{'=' * 60}\n")
 
     results = {"completed": [], "failed": []}
 
