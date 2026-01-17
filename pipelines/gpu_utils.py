@@ -21,6 +21,7 @@ GPU_AVAILABLE = False
 try:
     import cupy as cp
     from cupyx.scipy import ndimage as gpu_ndimage
+
     GPU_AVAILABLE = True
     print("GPU acceleration available via CuPy", file=sys.stderr)
 except ImportError:
@@ -156,7 +157,9 @@ def gpu_gaussian_filter(input_arr, sigma, truncate=4.0):
         arr_gpu = to_gpu(input_arr)
 
         # Apply Gaussian filter on GPU
-        result_gpu = gpu_ndimage.gaussian_filter(arr_gpu, sigma=sigma, truncate=truncate)
+        result_gpu = gpu_ndimage.gaussian_filter(
+            arr_gpu, sigma=sigma, truncate=truncate
+        )
 
         # Return in same format as input
         if isinstance(input_arr, np.ndarray):
@@ -255,32 +258,32 @@ def optimize_terrarium_encoding(data):
         Tuple of (red, green, blue) channels as uint8 arrays
     """
     if not GPU_AVAILABLE:
-        # CPU path
         data_shifted = data + 32768.0
         red = (data_shifted // 256).astype(np.uint8)
-        green = np.floor(data_shifted % 256).astype(np.uint8)
-        blue = (np.floor((data_shifted - np.floor(data_shifted)) * 256)).astype(np.uint8)
+        green = (data_shifted % 256).astype(np.uint8)
+        blue = ((data_shifted - np.floor(data_shifted)) * 256).astype(np.uint8)
         return red, green, blue
 
     try:
         # Transfer to GPU
         data_gpu = to_gpu(data)
 
-        # Perform encoding on GPU
         data_shifted = data_gpu + 32768.0
         red_gpu = (data_shifted // 256).astype(cp.uint8)
-        green_gpu = cp.floor(data_shifted % 256).astype(cp.uint8)
-        blue_gpu = cp.floor((data_shifted - cp.floor(data_shifted)) * 256).astype(cp.uint8)
+        green_gpu = (data_shifted % 256).astype(cp.uint8)
+        blue_gpu = ((data_shifted - cp.floor(data_shifted)) * 256).astype(cp.uint8)
 
         # Transfer back to CPU for final encoding
         return to_cpu(red_gpu), to_cpu(green_gpu), to_cpu(blue_gpu)
 
     except Exception as e:
-        print(f"Warning: GPU terrarium encoding failed, using CPU: {e}", file=sys.stderr)
+        print(
+            f"Warning: GPU terrarium encoding failed, using CPU: {e}", file=sys.stderr
+        )
         data_shifted = data + 32768.0
         red = (data_shifted // 256).astype(np.uint8)
-        green = np.floor(data_shifted % 256).astype(np.uint8)
-        blue = (np.floor((data_shifted - np.floor(data_shifted)) * 256)).astype(np.uint8)
+        green = (data_shifted % 256).astype(np.uint8)
+        blue = ((data_shifted - np.floor(data_shifted)) * 256).astype(np.uint8)
         return red, green, blue
 
 
