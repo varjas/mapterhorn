@@ -26,8 +26,8 @@ def download_all_files(urls, source_dir):
 
     try:
         command = (
-            f'wget --quiet --continue --input-file '{input_file}' '
-            f'--directory-prefix '{source_dir}' --tries 3 --timeout 60 '
+            f'wget --quiet --continue --input-file "{input_file}" '
+            f'--directory-prefix "{source_dir}" --tries 3 --timeout 60 '
             '--progress=bar:force'
         )
 
