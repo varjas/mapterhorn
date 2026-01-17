@@ -8,6 +8,7 @@ import numpy as np
 from scipy import ndimage
 
 import utils
+import gpu_utils
 
 
 def merge(filepath):
@@ -78,7 +79,7 @@ def merge(filepath):
                         if not filled_from_start:
 
                             binary_mask = (merged_tile != -9999).astype('int32')
-                            eroded = ndimage.binary_erosion(binary_mask)
+                            eroded = gpu_utils.gpu_binary_erosion(binary_mask)
                             boundary_tile = binary_mask.astype(bool) & ~eroded
 
                             for tiff_filepath in tiff_filepaths[1:]:
@@ -91,9 +92,9 @@ def merge(filepath):
 
                                 if -9999 not in merged_tile:
                                     break
-                                
+
                                 binary_mask = (merged_tile != -9999).astype('int32')
-                                eroded = ndimage.binary_erosion(binary_mask)
+                                eroded = gpu_utils.gpu_binary_erosion(binary_mask)
                                 boundary_tile |= binary_mask.astype(bool) & ~eroded
                         
                             boundary_tile[0, :] = 0
@@ -102,18 +103,18 @@ def merge(filepath):
                             boundary_tile[:, -1] = 0
 
                             binary_mask = (merged_tile != -9999).astype('int32')
-                            eroded = ndimage.binary_erosion(binary_mask)
+                            eroded = gpu_utils.gpu_binary_erosion(binary_mask)
                             boundary_tile &= eroded.astype(bool)
                             
                             if 1 in boundary_tile:
                                 merged_tile[merged_tile == -9999] = 0
                                 truncate = 4
                                 sigma = int(overlap / truncate) - 1
-                                boundary_tile_blurred = ndimage.gaussian_filter(boundary_tile.astype(float), sigma=sigma, truncate=truncate)
+                                boundary_tile_blurred = gpu_utils.gpu_gaussian_filter(boundary_tile.astype(float), sigma=sigma, truncate=truncate)
                                 boundary_tile_blurred /= (1.0 / (np.sqrt(2 * np.pi) * sigma))
                                 boundary_tile_blurred = np.clip(boundary_tile_blurred, 0, 1)
                                 boundary_tile_blurred = 3 * boundary_tile_blurred ** 2 - 2 * boundary_tile_blurred ** 3
-                                merged_tile_blurred = ndimage.gaussian_filter(merged_tile, sigma=sigma, truncate=truncate)
+                                merged_tile_blurred = gpu_utils.gpu_gaussian_filter(merged_tile, sigma=sigma, truncate=truncate)
                                 merged_tile = boundary_tile_blurred * merged_tile_blurred + (1 - boundary_tile_blurred) * merged_tile
                         
                         crop_y_start = overlap if y > 0 else 0

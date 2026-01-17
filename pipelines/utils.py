@@ -13,6 +13,8 @@ import imagecodecs
 from pmtiles.tile import zxy_to_tileid, tileid_to_zxy, TileType, Compression
 from pmtiles.writer import Writer
 
+import gpu_utils
+
 macrotile_z = 12
 macrotile_buffer_3857 = 150
 num_overviews = 6
@@ -55,11 +57,11 @@ def save_terrarium_tile(data, filepath):
     factor = 2 ** (full_resolution_zoom - z) / 256 
     data = np.round(data / factor) * factor
 
-    data += 32768
+    red, green, blue = gpu_utils.optimize_terrarium_encoding(data)
     rgb = np.zeros((512, 512, 3), dtype=np.uint8)
-    rgb[..., 0] = data // 256
-    rgb[..., 1] = data % 256
-    rgb[..., 2] = (data - np.floor(data)) * 256
+    rgb[..., 0] = red
+    rgb[..., 1] = green
+    rgb[..., 2] = blue
     with open(filepath, 'wb') as f:
         f.write(imagecodecs.webp_encode(rgb, lossless=True))
 

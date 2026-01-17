@@ -15,3 +15,8 @@ dependencies = [
     "requests>=2.32.4",
     "scipy>=1.10.1",
 ]
+
+[project.optional-dependencies]
+gpu = [
+    "cupy-cuda12x>=13.0.0",  # GPU acceleration via CuPy (CUDA 12.x compatible)
+]

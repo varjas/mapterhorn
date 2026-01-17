@@ -12,6 +12,7 @@ import mercantile
 from pmtiles.reader import Reader, MmapSource
 
 import utils
+import gpu_utils
 
 def create_tile(parent_x, parent_y, parent_z, aggregation_id, tmp_folder, pmtiles_filenames):
     tile_to_pmtiles_filename = get_tile_to_pmtiles_filename(pmtiles_filenames)
@@ -38,8 +39,8 @@ def create_tile(parent_x, parent_y, parent_z, aggregation_id, tmp_folder, pmtile
             col_end = 512 * (col_offset + 1)
             # (red * 256 + green + blue / 256) - 32768
             full_data[row_start:row_end, col_start:col_end] = child_rgb[:, :, 0] * 256.0 + child_rgb[:, :, 1] + child_rgb[:, :, 2] / 256.0 - 32768.0
-            
-    parent_data = full_data.reshape((512, 2, 512, 2)).mean(axis=(1, 3)) # downsample by 4x4 pixel averaging
+
+    parent_data = gpu_utils.gpu_accelerated_reshape_mean(full_data, (512, 2, 512, 2), (1, 3))
 
     parent_data += 32768.0
     parent_rgb = np.zeros((512, 512, 3), dtype=np.uint8)
