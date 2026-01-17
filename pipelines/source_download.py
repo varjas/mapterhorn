@@ -5,13 +5,13 @@ from pathlib import Path
 
 
 def download_all_files(urls, source_dir):
-    '''
+    """
     Download all files using wget with automatic resume support.
 
     Args:
         urls: List of URLs to download.
         source_dir: Directory to save downloaded files.
-    '''
+    """
 
     input_file = f'{source_dir}/.download_urls.txt'
     expected_files = []
@@ -50,7 +50,7 @@ def download_all_files(urls, source_dir):
 
 
 def parse_file_list(file_list_path):
-    '''
+    """
     Parse a file_list.txt and extract URLs.
 
     Args:
@@ -62,7 +62,7 @@ def parse_file_list(file_list_path):
     Raises:
         FileNotFoundError: If the file_list.txt does not exist.
         ValueError: If no URLs are found in the file.
-    '''
+    """
     if not os.path.exists(file_list_path):
         raise FileNotFoundError(f'File list not found: {file_list_path}')
 
@@ -83,7 +83,7 @@ def parse_file_list(file_list_path):
 
 
 def main():
-    '''
+    """
     Main entry point for the source download script.
 
     Command-line arguments:
@@ -95,7 +95,7 @@ def main():
 
     Examples:
         uv run python source_download.py at1
-    '''
+    """
     if len(sys.argv) != 2:
         print('wrong number of arguments: source_download.py source')
         sys.exit(1)
