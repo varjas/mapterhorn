@@ -17,6 +17,60 @@
             height: 100%;
             width: 100%;
         }
+
+        .style-toggle-btn {
+            background: white;
+            font-size: 12px;
+            font-weight: 500;
+            border-radius: 0px;
+        }
+
+        .style-toggle-btn:hover {
+            background: #f8f8f8;
+        }
+
+        .nav-btn {
+            background: white;
+            font-size: 16px;
+            font-weight: 700;
+            border: none;
+            cursor: pointer;
+            padding: 8px 12px;
+            border-radius: 0px;
+        }
+
+        .nav-btn:hover:not(:disabled) {
+            background: #f0f0f0;
+        }
+
+        .nav-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .nav-info {
+            background: white;
+            padding: 4px 12px;
+            font-size: 11px;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        .nav-info.empty {
+            color: #999;
+            background: #f5f5f5;
+        }
+
+        .coverage-toggle-btn {
+            background: white;
+            font-size: 12px;
+            font-weight: 500;
+            border-radius: 0px;
+        }
+
+        .coverage-toggle-btn:hover {
+            background: #f8f8f8;
+        }
     </style>
 </head>
 
@@ -24,31 +78,133 @@
     <div id="map"></div>
     <script type="text/javascript">
 
-        const protocol = new pmtiles.Protocol({ metadata: true, errorOnMissingTile: true });
+        const indexPMTiles = new pmtiles.PMTiles('index.pmtiles');
+        const pmtilesCache = new Map();
+        const tilesMetadata = []; // Array to store {filename, centerLon, centerLat, centerZoom, isEmpty}
+
+        console.log('Starting to load index.pmtiles metadata...');
 
         maplibregl.addProtocol('mapterhorn', async (params, abortController) => {
-            const parts = params.url.replace('mapterhorn://', '').split('/');
-            const x = parseInt(parts[1]);
-            const y = parseInt(parts[2]);
-            const z = parseInt(parts[0]);
-            const p = new pmtiles.PMTiles('index.pmtiles');
-            const indexTile = await p.getZxy(z, x, y);
-            if (indexTile === undefined) {
-                 throw new Error(`tile ${z}/${x}/${y} not found`);
+            try {
+                const [z, x, y] = params.url.replace('mapterhorn://', '').split('/').map(Number);
+                console.log(`Requesting tile: ${z}/${x}/${y}`);
+
+                // Get filename from index
+                const indexTile = await indexPMTiles.getZxy(z, x, y);
+                if (indexTile === undefined) {
+                    console.warn(`Tile ${z}/${x}/${y} not found in index`);
+                    throw new Error(`Tile ${z}/${x}/${y} not found in index`);
+                }
+
+                const decoder = new TextDecoder('utf-8');
+                const filename = decoder.decode(indexTile.data);
+                console.log(`Tile ${z}/${x}/${y} -> "${filename}" (${indexTile.data.byteLength} bytes)`);
+
+                // Get or create PMTiles reader for this file
+                if (!pmtilesCache.has(filename)) {
+                    console.log(`  Creating PMTiles reader for ${filename} at zoom level ${z}`);
+                    const pmtilesFile = new pmtiles.PMTiles(filename);
+                    pmtilesCache.set(filename, pmtilesFile);
+
+                    // Fetch metadata for navigation - track all tiles
+                    pmtilesFile.getHeader().then(async header => {
+                        if (header.centerLon !== undefined && header.centerLat !== undefined) {
+                            // Check if this file is already in our navigation list
+                            const alreadyTracked = tilesMetadata.some(t => t.filename === filename);
+                            if (!alreadyTracked) {
+                                // Check if tile has actual data by testing if tiles exist at higher zoom levels
+                                let isEmpty = false;
+                                try {
+                                    // Sample a tile at a higher zoom level to see if there's actual data
+                                    const testZoom = Math.max(10, header.maxZoom || 10);
+                                    const centerZ = testZoom;
+                                    const centerX = Math.floor((header.centerLon + 180) / 360 * Math.pow(2, centerZ));
+                                    const centerY = Math.floor((1 - Math.log(Math.tan(header.centerLat * Math.PI / 180) + 1 / Math.cos(header.centerLat * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, centerZ));
+
+                                    const testTile = await pmtilesFile.getZxy(centerZ, centerX, centerY);
+                                    isEmpty = !testTile || !testTile.data;
+
+                                    console.log(`  Testing ${filename} at ${centerZ}/${centerX}/${centerY}: ${isEmpty ? 'EMPTY' : 'HAS DATA'}`);
+                                } catch (err) {
+                                    console.log(`  Could not test ${filename}, assuming not empty`);
+                                    isEmpty = false;
+                                }
+
+                                tilesMetadata.push({
+                                    filename: filename,
+                                    centerLon: header.centerLon,
+                                    centerLat: header.centerLat,
+                                    centerZoom: header.centerZoom || 10,
+                                    isEmpty: isEmpty
+                                });
+                                console.log(`  ✓ Added to navigation: ${filename} (${header.centerLon}, ${header.centerLat}) ${isEmpty ? '[EMPTY]' : ''}`);
+
+                                // Notify navigation control if it exists
+                                if (window.navigationControl) {
+                                    window.navigationControl.updateTileCount();
+                                }
+                            }
+                        }
+                    }).catch(err => {
+                        console.error(`Failed to get header for ${filename}:`, err);
+                    });
+                }
+                const pmtilesFile = pmtilesCache.get(filename);
+
+                // Get the tile data directly
+                const tileData = await pmtilesFile.getZxy(z, x, y);
+                if (!tileData || !tileData.data) {
+                    console.warn(`Tile ${z}/${x}/${y} not found in ${filename}`);
+                    throw new Error(`Tile ${z}/${x}/${y} not found`);
+                }
+
+                console.log(`✓ Loaded tile ${z}/${x}/${y} (${tileData.data.byteLength} bytes)`);
+
+                // Return WebP image data
+                return {
+                    data: tileData.data
+                };
+            } catch (error) {
+                console.error('Error loading tile:', error);
+                throw error;
             }
-            const decoder = new TextDecoder('utf-8')
-            const filename = decoder.decode(indexTile.data);
-            console.log({params, filename})
-            const url = `pmtiles://${filename}/${z}/${x}/${y}.webp`;
-            const newParams = { ...params, url };
-            return await protocol.tile(newParams, abortController);
         });
+
+        // Parse query parameters for style selection
+        const urlParams = new URLSearchParams(window.location.search);
+        const style = urlParams.get('style') || 'bw';
+
+        // Style configurations
+        const STYLE_CONFIGS = {
+            bw: {
+                highlightColor: ['#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF'],
+                shadowColor: ['#000000', '#000000', '#000000', '#000000']
+            },
+            rgb: {
+                highlightColor: ['#FF4000', '#FFFF00', '#40FF00', '#00FF80'],
+                shadowColor: ['#00BFFF', '#0000FF', '#BF00FF', '#FF0080']
+            }
+        };
+
+        // Helper function to get paint properties for a style
+        const getHillshadePaint = (styleName) => ({
+            'hillshade-method': 'multidirectional',
+            'hillshade-highlight-color': STYLE_CONFIGS[styleName].highlightColor,
+            'hillshade-shadow-color': STYLE_CONFIGS[styleName].shadowColor,
+            'hillshade-illumination-direction': [270, 315, 0, 45],
+            'hillshade-illumination-altitude': [30, 30, 30, 30]
+        });
+
+        const hillshadePaint = getHillshadePaint(style);
+
+        // Check for user-provided location BEFORE initializing the map
+        const hasUserProvidedLocation = window.location.hash && window.location.hash.includes('map=');
 
         const map = new maplibregl.Map({
             container: 'map',
             hash: 'map',
-            zoom: 10.5,
-            center: [9.0788, 47.1194],
+            zoom: 4,
+            center: [0, 0],  // Will be updated from metadata
             style: {
                 version: 8,
                 sources: {
@@ -59,15 +215,95 @@
                         tileSize: 512,
                         attribution: '<a href="https://github.com/mapterhorn/mapterhorn">© Mapterhorn</a>'
                     },
+                    tileCoverage: {
+                        type: 'geojson',
+                        data: 'tile-coverage.geojson'
+                    }
                 },
                 layers: [
                     {
                         id: 'hillshade',
                         type: 'hillshade',
                         source: 'hillshadeSource',
+                        paint: hillshadePaint
                     },
+                    {
+                        id: 'tile-coverage-fill',
+                        type: 'fill',
+                        source: 'tileCoverage',
+                        layout: {
+                            'visibility': 'none'
+                        },
+                        paint: {
+                            'fill-color': '#088',
+                            'fill-opacity': 0.3
+                        }
+                    },
+                    {
+                        id: 'tile-coverage-outline',
+                        type: 'line',
+                        source: 'tileCoverage',
+                        layout: {
+                            'visibility': 'visible'
+                        },
+                        paint: {
+                            'line-color': '#088',
+                            'line-width': 1
+                        }
+                    }
                 ],
             },
+        });
+
+        // Read header to get bounds information
+        console.log('About to read header...');
+        indexPMTiles.getHeader().then(header => {
+            console.log('Index header (raw):', header);
+            console.log('Header minLon:', header.minLon, 'minLat:', header.minLat);
+            console.log('Header maxLon:', header.maxLon, 'maxLat:', header.maxLat);
+            console.log('Header centerLon:', header.centerLon, 'centerLat:', header.centerLat, 'centerZoom:', header.centerZoom);
+        }).catch(error => {
+            console.error('Failed to read header immediately:', error);
+        });
+
+        // Wait for map to load, then read header and fit to bounds
+        console.log('Setting up map load handler...');
+        map.on('load', async () => {
+            console.log('Map load event fired!');
+
+            // Only auto-zoom if there's no existing location in the URL hash
+            if (hasUserProvidedLocation) {
+                console.log('Location already set via URL hash, skipping auto-zoom');
+                return;
+            }
+
+            try {
+                const header = await indexPMTiles.getHeader();
+                console.log('Index header:', header);
+
+                // PMTiles header includes bounds
+                if (header.minLon !== undefined && header.maxLon !== undefined) {
+                    const bounds = [header.minLon, header.minLat, header.maxLon, header.maxLat];
+                    console.log('Fitting map to bounds:', bounds);
+
+                    // Format: [[west, south], [east, north]]
+                    map.fitBounds([
+                        [bounds[0], bounds[1]],  // southwest
+                        [bounds[2], bounds[3]]   // northeast
+                    ], {
+                        padding: 20
+                    });
+                } else if (header.centerLon !== undefined && header.centerLat !== undefined) {
+                    // Fallback to center if available
+                    console.log('Setting map to center:', header.centerLon, header.centerLat, 'zoom:', header.centerZoom);
+                    map.setCenter([header.centerLon, header.centerLat]);
+                    if (header.centerZoom) map.setZoom(header.centerZoom);
+                } else {
+                    console.warn('No bounds or center found in header');
+                }
+            } catch (error) {
+                console.error('Failed to read index header:', error);
+            }
         });
 
         class LogoControl {
@@ -75,7 +311,7 @@
                 this._map = map;
                 this._container = document.createElement('div');
                 this._container.className = 'maplibregl-ctrl';
-                this._container.innerHTML = '<a href="/"><img width=400 src="https://mapterhorn.github.io/.github/brand/screen/mapterhorn-logo.png"/></a>';
+                this._container.innerHTML = '<a href="/"><img width=240 src="https://mapterhorn.github.io/.github/brand/screen/mapterhorn-logo.png"/></a>';
                 this._container.style.marginBottom = '-11px';
                 this._container.style.marginLeft = '-5px';
                 return this._container;
@@ -87,7 +323,228 @@
         }
         map.addControl(new LogoControl(), 'bottom-left');
 
-        // map.showTileBoundaries = true;
+        class StyleToggleControl {
+            constructor() {
+                this._currentStyle = style;
+            }
+            onAdd(map) {
+                this._map = map;
+                this._container = document.createElement('div');
+                this._container.className = 'maplibregl-ctrl maplibregl-ctrl-group';
+
+                this._button = document.createElement('button');
+                this._button.className = 'style-toggle-btn';
+                this._updateButtonText();
+
+                this._button.addEventListener('click', () => {
+                    this._toggleStyle();
+                });
+
+                this._container.appendChild(this._button);
+                return this._container;
+            }
+
+            _updateButtonText() {
+                this._button.textContent = this._currentStyle === 'rgb' ? 'RGB' : 'BW';
+            }
+
+            _toggleStyle() {
+                // Toggle between styles
+                this._currentStyle = this._currentStyle === 'rgb' ? 'bw' : 'rgb';
+
+                // Update URL - preserve hash from MapLibre
+                const urlParams = new URLSearchParams(window.location.search);
+                urlParams.set('style', this._currentStyle);
+                const newUrl = window.location.pathname + '?' + urlParams.toString() + window.location.hash;
+                window.history.pushState({}, '', newUrl);
+
+                // Apply new style paint properties
+                const paintProps = getHillshadePaint(this._currentStyle);
+                Object.entries(paintProps).forEach(([key, value]) => {
+                    this._map.setPaintProperty('hillshade', key, value);
+                });
+
+                // Force map to re-render with new paint properties
+                this._map.triggerRepaint();
+
+                // Update button text
+                this._updateButtonText();
+            }
+
+            onRemove() {
+                this._container.parentNode.removeChild(this._container);
+                this._map = undefined;
+            }
+        }
+        map.addControl(new StyleToggleControl(), 'bottom-right');
+
+        class CoverageToggleControl {
+            constructor() {
+                this._modes = ['outline', 'fill', 'none'];
+                this._currentMode = 'outline';
+            }
+            onAdd(map) {
+                this._map = map;
+                this._container = document.createElement('div');
+                this._container.className = 'maplibregl-ctrl maplibregl-ctrl-group';
+
+                this._button = document.createElement('button');
+                this._button.className = 'coverage-toggle-btn';
+                this._updateButtonText();
+
+                this._button.addEventListener('click', () => {
+                    this._toggleCoverage();
+                });
+
+                this._container.appendChild(this._button);
+                return this._container;
+            }
+
+            _updateButtonText() {
+                const labels = {
+                    'outline': 'LINE',
+                    'fill': 'FILL',
+                    'none': 'OFF'
+                };
+                this._button.textContent = labels[this._currentMode];
+            }
+
+            _toggleCoverage() {
+                const currentIndex = this._modes.indexOf(this._currentMode);
+                const nextIndex = (currentIndex + 1) % this._modes.length;
+                this._currentMode = this._modes[nextIndex];
+
+                if (this._currentMode === 'none') {
+                    this._map.setLayoutProperty('tile-coverage-fill', 'visibility', 'none');
+                    this._map.setLayoutProperty('tile-coverage-outline', 'visibility', 'none');
+                } else if (this._currentMode === 'fill') {
+                    this._map.setLayoutProperty('tile-coverage-fill', 'visibility', 'visible');
+                    this._map.setLayoutProperty('tile-coverage-outline', 'visibility', 'visible');
+                } else if (this._currentMode === 'outline') {
+                    this._map.setLayoutProperty('tile-coverage-fill', 'visibility', 'none');
+                    this._map.setLayoutProperty('tile-coverage-outline', 'visibility', 'visible');
+                }
+
+                this._updateButtonText();
+            }
+
+            onRemove() {
+                this._container.parentNode.removeChild(this._container);
+                this._map = undefined;
+            }
+        }
+        map.addControl(new CoverageToggleControl(), 'bottom-right');
+
+        class TileNavigationControl {
+            constructor() {
+                this._currentIndex = 0;
+            }
+
+            onAdd(map) {
+                this._map = map;
+                this._container = document.createElement('div');
+                this._container.className = 'maplibregl-ctrl maplibregl-ctrl-group';
+                this._container.style.display = 'flex';
+                this._container.style.flexDirection = 'column';
+
+                // Navigation buttons row
+                const navRow = document.createElement('div');
+                navRow.style.display = 'flex';
+
+                this._prevBtn = document.createElement('button');
+                this._prevBtn.className = 'nav-btn';
+                this._prevBtn.innerHTML = '◀';
+                this._prevBtn.title = 'Previous tile';
+                this._prevBtn.addEventListener('click', () => this._navigate(-1));
+
+                this._nextBtn = document.createElement('button');
+                this._nextBtn.className = 'nav-btn';
+                this._nextBtn.innerHTML = '▶';
+                this._nextBtn.title = 'Next tile';
+                this._nextBtn.addEventListener('click', () => this._navigate(1));
+
+                navRow.appendChild(this._prevBtn);
+                navRow.appendChild(this._nextBtn);
+                this._container.appendChild(navRow);
+
+                // Info display
+                this._info = document.createElement('div');
+                this._info.className = 'nav-info';
+                this._container.appendChild(this._info);
+
+                this._updateUI();
+
+                return this._container;
+            }
+
+            _navigate(direction) {
+                if (tilesMetadata.length === 0) return;
+
+                this._currentIndex = (this._currentIndex + direction + tilesMetadata.length) % tilesMetadata.length;
+                const tile = tilesMetadata[this._currentIndex];
+
+                console.log(`Navigating to tile ${this._currentIndex + 1}/${tilesMetadata.length}: ${tile.filename}`);
+
+                this._map.flyTo({
+                    center: [tile.centerLon, tile.centerLat],
+                    zoom: tile.centerZoom,
+                    duration: 1000
+                });
+
+                this._updateUI();
+            }
+
+            updateTileCount() {
+                this._updateUI();
+            }
+
+            _updateUI() {
+                const count = tilesMetadata.length;
+
+                if (count === 0) {
+                    this._info.textContent = 'No tiles loaded';
+                    this._info.classList.remove('empty');
+                    this._prevBtn.disabled = true;
+                    this._nextBtn.disabled = true;
+                } else {
+                    const tile = tilesMetadata[this._currentIndex];
+                    const emptyLabel = tile.isEmpty ? ' [empty]' : '';
+                    this._info.textContent = `Tile ${this._currentIndex + 1}/${count}: ${tile.filename}${emptyLabel}`;
+
+                    // Apply empty styling if this tile is empty
+                    if (tile.isEmpty) {
+                        this._info.classList.add('empty');
+                    } else {
+                        this._info.classList.remove('empty');
+                    }
+
+                    this._prevBtn.disabled = false;
+                    this._nextBtn.disabled = false;
+                }
+            }
+
+            onRemove() {
+                this._container.parentNode.removeChild(this._container);
+                this._map = undefined;
+            }
+        }
+
+        window.navigationControl = new TileNavigationControl();
+        map.addControl(window.navigationControl, 'top-right');
+
+        map.showTileBoundaries = true;
+
+        // Log map errors
+        map.on('error', (e) => {
+            console.error('Map error:', e);
+        });
+
+        // Log source errors
+        map.on('sourcedata', (e) => {
+            if (e.sourceId === 'hillshadeSource' && e.isSourceLoaded) {
+                console.log('Hillshade source loaded');
+            }
+        });
     </script>
 </body>
 

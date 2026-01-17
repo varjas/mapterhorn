@@ -1,0 +1,338 @@
+
+<html>
+
+<head>
+    <title>Mapterhorn 3-Way Compare</title>
+    <meta charset="utf-8" />
+    <script src="https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.js"></script>
+    <link href="https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.css" rel="stylesheet" />
+    <script src="https://unpkg.com/pmtiles@4.3.0/dist/pmtiles.js"></script>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+        }
+
+        .map-container {
+            position: relative;
+            flex: 1;
+            height: 100vh;
+            border-left: 1px solid #000000;
+        }
+
+        .map {
+            height: 100%;
+            width: 100%;
+        }
+
+        .map-label {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 8px 12px;
+            font-size: 14px;
+            font-weight: 600;
+            border-radius: 4px;
+            z-index: 1;
+            pointer-events: none;
+            font-family: sans-serif;
+        }
+
+    </style>
+</head>
+
+<body>
+    <div class="map-container">
+        <div class="map-label">Live</div>
+        <div id="map-live" class="map"></div>
+    </div>
+    <div class="map-container">
+        <div class="map-label">BW</div>
+        <div id="map-local-bw" class="map"></div>
+    </div>
+    <div class="map-container">
+        <div class="map-label">RGB</div>
+        <div id="map-local-rgb" class="map"></div>
+    </div>
+
+    <script type="text/javascript">
+        const indexPMTiles = new pmtiles.PMTiles('index.pmtiles');
+        const pmtilesCache = new Map();
+
+        console.log('Starting to load index.pmtiles metadata...');
+
+        maplibregl.addProtocol('mapterhorn', async (params, abortController) => {
+            try {
+                const [z, x, y] = params.url.replace('mapterhorn://', '').split('/').map(Number);
+                console.log(`Requesting tile: ${z}/${x}/${y}`);
+
+                const indexTile = await indexPMTiles.getZxy(z, x, y);
+                if (indexTile === undefined) {
+                    console.warn(`Tile ${z}/${x}/${y} not found in index`);
+                    throw new Error(`Tile ${z}/${x}/${y} not found in index`);
+                }
+
+                const decoder = new TextDecoder('utf-8');
+                const filename = decoder.decode(indexTile.data);
+                console.log(`Tile ${z}/${x}/${y} -> "${filename}" (${indexTile.data.byteLength} bytes)`);
+
+                if (!pmtilesCache.has(filename)) {
+                    console.log(`  Creating PMTiles reader for ${filename} at zoom level ${z}`);
+                    const pmtilesFile = new pmtiles.PMTiles(filename);
+                    pmtilesCache.set(filename, pmtilesFile);
+                }
+                const pmtilesFile = pmtilesCache.get(filename);
+
+                const tileData = await pmtilesFile.getZxy(z, x, y);
+                if (!tileData || !tileData.data) {
+                    console.warn(`Tile ${z}/${x}/${y} not found in ${filename}`);
+                    throw new Error(`Tile ${z}/${x}/${y} not found`);
+                }
+
+                console.log(`✓ Loaded tile ${z}/${x}/${y} (${tileData.data.byteLength} bytes)`);
+
+                return {
+                    data: tileData.data
+                };
+            } catch (error) {
+                console.error('Error loading tile:', error);
+                throw error;
+            }
+        });
+
+        const LOCAL_MAP_BACKGROUND = '#607D8B';
+
+        const STYLE_CONFIGS = {
+            bw: {
+                highlightColor: ['#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF'],
+                shadowColor: ['#000000', '#000000', '#000000', '#000000']
+            },
+            rgb: {
+                highlightColor: ['#FF4000', '#FFFF00', '#40FF00', '#00FF80'],
+                shadowColor: ['#00BFFF', '#0000FF', '#BF00FF', '#FF0080']
+            }
+        };
+
+        const getHillshadePaint = (styleName) => ({
+            'hillshade-method': 'multidirectional',
+            'hillshade-highlight-color': STYLE_CONFIGS[styleName].highlightColor,
+            'hillshade-shadow-color': STYLE_CONFIGS[styleName].shadowColor,
+            'hillshade-illumination-direction': [270, 315, 0, 45],
+            'hillshade-illumination-altitude': [30, 30, 30, 30],
+            'hillshade-exaggeration': 1,
+            'hillshade-accent-color': '#FFFFFF'
+        });
+
+        const bwPaint = getHillshadePaint('bw');
+        const rgbPaint = getHillshadePaint('rgb');
+
+        const hasUserProvidedLocation = window.location.hash && window.location.hash.includes('map=');
+
+        const mapLive = new maplibregl.Map({
+            container: 'map-live',
+            hash: 'map',
+            zoom: 4,
+            center: [0, 0],
+            style: {
+                version: 8,
+                sources: {
+                    hillshadeSource: {
+                        type: 'raster-dem',
+                        url: 'https://tiles.mapterhorn.com/tilejson.json',
+                        encoding: 'terrarium',
+                        tileSize: 512,
+                        attribution: '<a href="https://github.com/mapterhorn/mapterhorn">© Mapterhorn</a>'
+                    },
+                },
+                layers: [
+                    {
+                        id: 'hillshade',
+                        type: 'hillshade',
+                        source: 'hillshadeSource',
+                        paint: bwPaint
+                    },
+                ],
+            },
+        });
+
+        const mapLocalBW = new maplibregl.Map({
+            container: 'map-local-bw',
+            zoom: 4,
+            center: [0, 0],
+            style: {
+                version: 8,
+                sources: {
+                    hillshadeSource: {
+                        type: 'raster-dem',
+                        tiles: ['mapterhorn://{z}/{x}/{y}'],
+                        encoding: 'terrarium',
+                        tileSize: 512,
+                        attribution: '<a href="https://github.com/mapterhorn/mapterhorn">© Mapterhorn</a>'
+                    },
+                },
+                layers: [
+                    {
+                        id: 'background',
+                        type: 'background',
+                        paint: {
+                            'background-color': '#FFFFFF'
+                        }
+                    },
+                    {
+                        id: 'hillshade',
+                        type: 'hillshade',
+                        source: 'hillshadeSource',
+                        paint: bwPaint
+                    },
+                ],
+            },
+        });
+
+        const mapLocalRGB = new maplibregl.Map({
+            container: 'map-local-rgb',
+            zoom: 4,
+            center: [0, 0],
+            style: {
+                version: 8,
+                sources: {
+                    hillshadeSource: {
+                        type: 'raster-dem',
+                        tiles: ['mapterhorn://{z}/{x}/{y}'],
+                        encoding: 'terrarium',
+                        tileSize: 512,
+                        attribution: '<a href="https://github.com/mapterhorn/mapterhorn">© Mapterhorn</a>'
+                    },
+                },
+                layers: [
+                    {
+                        id: 'background',
+                        type: 'background',
+                        paint: {
+                            'background-color': '#FFFFFF'
+                        }
+                    },
+                    {
+                        id: 'hillshade',
+                        type: 'hillshade',
+                        source: 'hillshadeSource',
+                        paint: rgbPaint
+                    },
+                ],
+            },
+        });
+
+        const allMaps = [mapLive, mapLocalBW, mapLocalRGB];
+        let isSyncing = false;
+
+        function syncMaps(sourceMap) {
+            if (isSyncing) return;
+            isSyncing = true;
+
+            const center = sourceMap.getCenter();
+            const zoom = sourceMap.getZoom();
+            const bearing = sourceMap.getBearing();
+            const pitch = sourceMap.getPitch();
+
+            allMaps.forEach(map => {
+                if (map !== sourceMap) {
+                    map.setCenter(center);
+                    map.setZoom(zoom);
+                    map.setBearing(bearing);
+                    map.setPitch(pitch);
+                }
+            });
+
+            isSyncing = false;
+        }
+
+        allMaps.forEach(map => {
+            map.on('move', () => syncMaps(map));
+            map.on('zoom', () => syncMaps(map));
+            map.on('rotate', () => syncMaps(map));
+            map.on('pitch', () => syncMaps(map));
+        });
+
+        console.log('About to read header...');
+        indexPMTiles.getHeader().then(header => {
+            console.log('Index header (raw):', header);
+        }).catch(error => {
+            console.error('Failed to read header immediately:', error);
+        });
+
+        console.log('Setting up map load handler...');
+        mapLocalBW.on('load', async () => {
+            console.log('Local BW map load event fired!');
+
+            if (hasUserProvidedLocation) {
+                console.log('Location already set via URL hash, skipping auto-zoom');
+                return;
+            }
+
+            try {
+                const header = await indexPMTiles.getHeader();
+                console.log('Index header:', header);
+
+                if (header.minLon !== undefined && header.maxLon !== undefined) {
+                    const bounds = [header.minLon, header.minLat, header.maxLon, header.maxLat];
+                    console.log('Fitting map to bounds:', bounds);
+
+                    allMaps.forEach(map => {
+                        map.fitBounds([
+                            [bounds[0], bounds[1]],
+                            [bounds[2], bounds[3]]
+                        ], {
+                            padding: 20
+                        });
+                    });
+                } else if (header.centerLon !== undefined && header.centerLat !== undefined) {
+                    console.log('Setting map to center:', header.centerLon, header.centerLat, 'zoom:', header.centerZoom);
+                    allMaps.forEach(map => {
+                        map.setCenter([header.centerLon, header.centerLat]);
+                        if (header.centerZoom) {
+                            map.setZoom(header.centerZoom);
+                        }
+                    });
+                } else {
+                    console.warn('No bounds or center found in header');
+                }
+            } catch (error) {
+                console.error('Failed to read index header:', error);
+            }
+        });
+
+        class LogoControl {
+            onAdd(map) {
+                this._map = map;
+                this._container = document.createElement('div');
+                this._container.className = 'maplibregl-ctrl';
+                this._container.innerHTML = '<a href="/"><img width=240 src="https://mapterhorn.github.io/.github/brand/screen/mapterhorn-logo.png"/></a>';
+                this._container.style.marginBottom = '-11px';
+                this._container.style.marginLeft = '-5px';
+                return this._container;
+            }
+            onRemove() {
+                this._container.parentNode.removeChild(this._container);
+                this._map = undefined;
+            }
+        }
+        mapLocalBW.addControl(new LogoControl(), 'bottom-left');
+
+        allMaps.forEach(map => {
+            map.showTileBoundaries = true;
+
+            map.on('error', (e) => {
+                console.error('Map error:', e);
+            });
+
+            map.on('sourcedata', (e) => {
+                if (e.sourceId === 'hillshadeSource' && e.isSourceLoaded) {
+                    console.log('Hillshade source loaded');
+                }
+            });
+        });
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,376 @@
+
+<html>
+
+<head>
+    <title>Mapterhorn Compare View</title>
+    <meta charset="utf-8" />
+    <script src="https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.js"></script>
+    <link href="https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.css" rel="stylesheet" />
+    <script src="https://unpkg.com/pmtiles@4.3.0/dist/pmtiles.js"></script>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+        }
+
+        .map-container {
+            position: relative;
+            flex: 1;
+            height: 100vh;
+            border: 1px solid #000000;
+        }
+
+        .map {
+            height: 100%;
+            width: 100%;
+        }
+
+        .map-label {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 8px 12px;
+            font-size: 14px;
+            font-weight: 600;
+            border-radius: 4px;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        .style-toggle-btn {
+            background: white;
+            font-size: 12px;
+            font-weight: 500;
+            border-radius: 0px;
+        }
+
+        .style-toggle-btn:hover {
+            background: #f8f8f8;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="map-container">
+        <div class="map-label">Live</div>
+        <div id="map-live" class="map"></div>
+    </div>
+    <div class="map-container">
+        <div class="map-label">Local</div>
+        <div id="map-local" class="map"></div>
+    </div>
+
+    <script type="text/javascript">
+        const indexPMTiles = new pmtiles.PMTiles('index.pmtiles');
+        const pmtilesCache = new Map();
+
+        console.log('Starting to load index.pmtiles metadata...');
+
+        maplibregl.addProtocol('mapterhorn', async (params, abortController) => {
+            try {
+                const [z, x, y] = params.url.replace('mapterhorn://', '').split('/').map(Number);
+                console.log(`Requesting tile: ${z}/${x}/${y}`);
+
+                const indexTile = await indexPMTiles.getZxy(z, x, y);
+                if (indexTile === undefined) {
+                    console.warn(`Tile ${z}/${x}/${y} not found in index`);
+                    throw new Error(`Tile ${z}/${x}/${y} not found in index`);
+                }
+
+                const decoder = new TextDecoder('utf-8');
+                const filename = decoder.decode(indexTile.data);
+                console.log(`Tile ${z}/${x}/${y} -> "${filename}" (${indexTile.data.byteLength} bytes)`);
+
+                if (!pmtilesCache.has(filename)) {
+                    console.log(`  Creating PMTiles reader for ${filename} at zoom level ${z}`);
+                    const pmtilesFile = new pmtiles.PMTiles(filename);
+                    pmtilesCache.set(filename, pmtilesFile);
+                }
+                const pmtilesFile = pmtilesCache.get(filename);
+
+                const tileData = await pmtilesFile.getZxy(z, x, y);
+                if (!tileData || !tileData.data) {
+                    console.warn(`Tile ${z}/${x}/${y} not found in ${filename}`);
+                    throw new Error(`Tile ${z}/${x}/${y} not found`);
+                }
+
+                console.log(`✓ Loaded tile ${z}/${x}/${y} (${tileData.data.byteLength} bytes)`);
+
+                return {
+                    data: tileData.data
+                };
+            } catch (error) {
+                console.error('Error loading tile:', error);
+                throw error;
+            }
+        });
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const style = urlParams.get('style') || 'bw';
+
+        const LOCAL_MAP_BACKGROUND = '#607D8B';
+
+        const STYLE_CONFIGS = {
+            bw: {
+                highlightColor: ['#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF'],
+                shadowColor: ['#000000', '#000000', '#000000', '#000000']
+            },
+            rgb: {
+                highlightColor: ['#FF4000', '#FFFF00', '#40FF00', '#00FF80'],
+                shadowColor: ['#00BFFF', '#0000FF', '#BF00FF', '#FF0080']
+            }
+        };
+
+        const getHillshadePaint = (styleName) => ({
+            'hillshade-method': 'multidirectional',
+            'hillshade-highlight-color': STYLE_CONFIGS[styleName].highlightColor,
+            'hillshade-shadow-color': STYLE_CONFIGS[styleName].shadowColor,
+            'hillshade-illumination-direction': [270, 315, 0, 45],
+            'hillshade-illumination-altitude': [30, 30, 30, 30],
+            'hillshade-exaggeration': 1,
+            'hillshade-accent-color': '#FFFFFF'
+        });
+
+        const hillshadePaint = getHillshadePaint(style);
+
+        const hasUserProvidedLocation = window.location.hash && window.location.hash.includes('map=');
+
+        const mapLive = new maplibregl.Map({
+            container: 'map-live',
+            hash: 'map',
+            zoom: 4,
+            center: [0, 0],
+            style: {
+                version: 8,
+                sources: {
+                    hillshadeSource: {
+                        type: 'raster-dem',
+                        url: 'https://tiles.mapterhorn.com/tilejson.json',
+                        encoding: 'terrarium',
+                        tileSize: 512,
+                        attribution: '<a href="https://github.com/mapterhorn/mapterhorn">© Mapterhorn</a>'
+                    },
+                },
+                layers: [
+                    {
+                        id: 'hillshade',
+                        type: 'hillshade',
+                        source: 'hillshadeSource',
+                        paint: hillshadePaint
+                    },
+                ],
+            },
+        });
+
+        const mapLocal = new maplibregl.Map({
+            container: 'map-local',
+            zoom: 4,
+            center: [0, 0],
+            style: {
+                version: 8,
+                sources: {
+                    hillshadeSource: {
+                        type: 'raster-dem',
+                        tiles: ['mapterhorn://{z}/{x}/{y}'],
+                        encoding: 'terrarium',
+                        tileSize: 512,
+                        attribution: '<a href="https://github.com/mapterhorn/mapterhorn">© Mapterhorn</a>'
+                    },
+                },
+                layers: [
+                    {
+                        id: 'background',
+                        type: 'background',
+                        paint: {
+                            'background-color': '#FFFFFF'
+                        }
+                    },
+                    {
+                        id: 'hillshade',
+                        type: 'hillshade',
+                        source: 'hillshadeSource',
+                        paint: hillshadePaint
+                    },
+                ],
+            },
+        });
+
+        let isSyncing = false;
+
+        function syncMaps(sourceMap, targetMap) {
+            if (isSyncing) return;
+            isSyncing = true;
+
+            const center = sourceMap.getCenter();
+            const zoom = sourceMap.getZoom();
+            const bearing = sourceMap.getBearing();
+            const pitch = sourceMap.getPitch();
+
+            targetMap.setCenter(center);
+            targetMap.setZoom(zoom);
+            targetMap.setBearing(bearing);
+            targetMap.setPitch(pitch);
+
+            isSyncing = false;
+        }
+
+        mapLive.on('move', () => syncMaps(mapLive, mapLocal));
+        mapLive.on('zoom', () => syncMaps(mapLive, mapLocal));
+        mapLive.on('rotate', () => syncMaps(mapLive, mapLocal));
+        mapLive.on('pitch', () => syncMaps(mapLive, mapLocal));
+
+        mapLocal.on('move', () => syncMaps(mapLocal, mapLive));
+        mapLocal.on('zoom', () => syncMaps(mapLocal, mapLive));
+        mapLocal.on('rotate', () => syncMaps(mapLocal, mapLive));
+        mapLocal.on('pitch', () => syncMaps(mapLocal, mapLive));
+
+        console.log('About to read header...');
+        indexPMTiles.getHeader().then(header => {
+            console.log('Index header (raw):', header);
+        }).catch(error => {
+            console.error('Failed to read header immediately:', error);
+        });
+
+        console.log('Setting up map load handler...');
+        mapLocal.on('load', async () => {
+            console.log('Local map load event fired!');
+
+            if (hasUserProvidedLocation) {
+                console.log('Location already set via URL hash, skipping auto-zoom');
+                return;
+            }
+
+            try {
+                const header = await indexPMTiles.getHeader();
+                console.log('Index header:', header);
+
+                if (header.minLon !== undefined && header.maxLon !== undefined) {
+                    const bounds = [header.minLon, header.minLat, header.maxLon, header.maxLat];
+                    console.log('Fitting map to bounds:', bounds);
+
+                    mapLocal.fitBounds([
+                        [bounds[0], bounds[1]],
+                        [bounds[2], bounds[3]]
+                    ], {
+                        padding: 20
+                    });
+
+                    mapLive.fitBounds([
+                        [bounds[0], bounds[1]],
+                        [bounds[2], bounds[3]]
+                    ], {
+                        padding: 20
+                    });
+                } else if (header.centerLon !== undefined && header.centerLat !== undefined) {
+                    console.log('Setting map to center:', header.centerLon, header.centerLat, 'zoom:', header.centerZoom);
+                    mapLocal.setCenter([header.centerLon, header.centerLat]);
+                    mapLive.setCenter([header.centerLon, header.centerLat]);
+                    if (header.centerZoom) {
+                        mapLocal.setZoom(header.centerZoom);
+                        mapLive.setZoom(header.centerZoom);
+                    }
+                } else {
+                    console.warn('No bounds or center found in header');
+                }
+            } catch (error) {
+                console.error('Failed to read index header:', error);
+            }
+        });
+
+        class LogoControl {
+            onAdd(map) {
+                this._map = map;
+                this._container = document.createElement('div');
+                this._container.className = 'maplibregl-ctrl';
+                this._container.innerHTML = '<a href="/"><img width=240 src="https://mapterhorn.github.io/.github/brand/screen/mapterhorn-logo.png"/></a>';
+                this._container.style.marginBottom = '-11px';
+                this._container.style.marginLeft = '-5px';
+                return this._container;
+            }
+            onRemove() {
+                this._container.parentNode.removeChild(this._container);
+                this._map = undefined;
+            }
+        }
+        mapLocal.addControl(new LogoControl(), 'bottom-left');
+
+        class StyleToggleControl {
+            constructor(maps) {
+                this._currentStyle = style;
+                this._maps = maps;
+            }
+            onAdd(map) {
+                this._map = map;
+                this._container = document.createElement('div');
+                this._container.className = 'maplibregl-ctrl maplibregl-ctrl-group';
+
+                this._button = document.createElement('button');
+                this._button.className = 'style-toggle-btn';
+                this._updateButtonText();
+
+                this._button.addEventListener('click', () => {
+                    this._toggleStyle();
+                });
+
+                this._container.appendChild(this._button);
+                return this._container;
+            }
+
+            _updateButtonText() {
+                this._button.textContent = this._currentStyle === 'rgb' ? 'RGB' : 'BW';
+            }
+
+            _toggleStyle() {
+                this._currentStyle = this._currentStyle === 'rgb' ? 'bw' : 'rgb';
+
+                const urlParams = new URLSearchParams(window.location.search);
+                urlParams.set('style', this._currentStyle);
+                const newUrl = window.location.pathname + '?' + urlParams.toString() + window.location.hash;
+                window.history.pushState({}, '', newUrl);
+
+                const paintProps = getHillshadePaint(this._currentStyle);
+                this._maps.forEach(map => {
+                    Object.entries(paintProps).forEach(([key, value]) => {
+                        map.setPaintProperty('hillshade', key, value);
+                    });
+                    map.triggerRepaint();
+                });
+
+                this._updateButtonText();
+            }
+
+            onRemove() {
+                this._container.parentNode.removeChild(this._container);
+                this._map = undefined;
+            }
+        }
+        mapLocal.addControl(new StyleToggleControl([mapLive, mapLocal]), 'bottom-right');
+
+        mapLocal.showTileBoundaries = true;
+        mapLive.showTileBoundaries = true;
+
+        mapLocal.on('error', (e) => {
+            console.error('Local map error:', e);
+        });
+
+        mapLive.on('error', (e) => {
+            console.error('Live map error:', e);
+        });
+
+        mapLocal.on('sourcedata', (e) => {
+            if (e.sourceId === 'hillshadeSource' && e.isSourceLoaded) {
+                console.log('Local hillshade source loaded');
+            }
+        });
+
+        mapLive.on('sourcedata', (e) => {
+            if (e.sourceId === 'hillshadeSource' && e.isSourceLoaded) {
+                console.log('Live hillshade source loaded');
+            }
+        });
+    </script>
+</body>
+
+</html>
