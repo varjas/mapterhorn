@@ -116,7 +116,7 @@ def main():
         source_dir = Path(f'source-store/{source}')
         download_all_files(urls, source_dir)
 
-        print(f'\n✓ SUCCESS: All files for '{source}' downloaded successfully')
+        print(f'\n✓ SUCCESS: All files for "{source}" downloaded successfully')
     except Exception as error:
         print(f'\n✗ FAILED: {str(error)}')
         sys.exit(1)
