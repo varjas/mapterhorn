@@ -296,7 +296,9 @@ def print_gpu_info():
     if GPU_AVAILABLE:
         try:
             device = cp.cuda.Device()
-            print(f"GPU Device: {device.name}")
+            props = cp.cuda.runtime.getDeviceProperties(device.id)
+            device_name = props['name'].decode()
+            print(f"GPU Device: {device_name}")
             print(f"Compute Capability: {device.compute_capability}")
             print(f"Total Memory: {device.mem_info[1] / 1e9:.2f} GB")
             print(f"Free Memory: {device.mem_info[0] / 1e9:.2f} GB")
