@@ -63,13 +63,14 @@ def get_array_module(arr):
     return np
 
 
-def to_gpu(arr, force_cpu=False):
+def to_gpu(arr, force_cpu=False, force_gpu=False):
     """
     Transfer array to GPU if available and beneficial.
 
     Args:
         arr: NumPy array to transfer
         force_cpu: If True, keep on CPU even if GPU is available
+        force_gpu: If True, always transfer to GPU regardless of size
 
     Returns:
         GPU array if GPU available and not forced to CPU, otherwise original array
@@ -78,9 +79,8 @@ def to_gpu(arr, force_cpu=False):
         return arr
 
     try:
-        # Only transfer to GPU if array is reasonably large
-        # Small arrays may be faster on CPU due to transfer overhead
-        if arr.nbytes > 1024 * 1024:  # 1 MB threshold
+        # Transfer to GPU if forced or if array is reasonably large
+        if force_gpu or arr.nbytes > 1024 * 1024:  # 1 MB threshold
             return cp.asarray(arr)
     except Exception as e:
         print(f"Warning: GPU transfer failed, using CPU: {e}", file=sys.stderr)
@@ -103,7 +103,7 @@ def to_cpu(arr):
     return arr
 
 
-def gpu_accelerated_reshape_mean(data, new_shape, axis):
+def gpu_accelerated_reshape_mean(data, new_shape, axis, force_gpu=False):
     """
     GPU-accelerated reshape and mean operation for downsampling.
 
@@ -113,6 +113,7 @@ def gpu_accelerated_reshape_mean(data, new_shape, axis):
         data: 2D array to downsample
         new_shape: Shape to reshape to (e.g., (512, 2, 512, 2))
         axis: Axis tuple to average over (e.g., (1, 3))
+        force_gpu: If True, always use GPU regardless of array size
 
     Returns:
         Downsampled array (same type as input - GPU or CPU)
@@ -122,7 +123,7 @@ def gpu_accelerated_reshape_mean(data, new_shape, axis):
 
     try:
         # Transfer to GPU if not already there
-        data_gpu = to_gpu(data)
+        data_gpu = to_gpu(data, force_gpu=force_gpu)
 
         # Perform reshape and mean on GPU
         result_gpu = data_gpu.reshape(new_shape).mean(axis=axis)
@@ -137,7 +138,7 @@ def gpu_accelerated_reshape_mean(data, new_shape, axis):
         return data.reshape(new_shape).mean(axis=axis)
 
 
-def gpu_gaussian_filter(input_arr, sigma, truncate=4.0):
+def gpu_gaussian_filter(input_arr, sigma, truncate=4.0, force_gpu=False):
     """
     GPU-accelerated Gaussian filter with automatic fallback.
 
@@ -145,6 +146,7 @@ def gpu_gaussian_filter(input_arr, sigma, truncate=4.0):
         input_arr: Input array to filter
         sigma: Standard deviation for Gaussian kernel
         truncate: Truncate filter at this many standard deviations
+        force_gpu: If True, always use GPU regardless of array size
 
     Returns:
         Filtered array (same type as input)
@@ -154,7 +156,7 @@ def gpu_gaussian_filter(input_arr, sigma, truncate=4.0):
 
     try:
         # Transfer to GPU if not already there
-        arr_gpu = to_gpu(input_arr)
+        arr_gpu = to_gpu(input_arr, force_gpu=force_gpu)
 
         # Apply Gaussian filter on GPU
         result_gpu = gpu_ndimage.gaussian_filter(
@@ -171,13 +173,14 @@ def gpu_gaussian_filter(input_arr, sigma, truncate=4.0):
         return cpu_ndimage.gaussian_filter(input_arr, sigma=sigma, truncate=truncate)
 
 
-def gpu_binary_erosion(input_arr, iterations=1):
+def gpu_binary_erosion(input_arr, iterations=1, force_gpu=False):
     """
     GPU-accelerated binary erosion with automatic fallback.
 
     Args:
         input_arr: Binary input array to erode
         iterations: Number of erosion iterations
+        force_gpu: If True, always use GPU regardless of array size
 
     Returns:
         Eroded binary array (same type as input)
@@ -187,7 +190,7 @@ def gpu_binary_erosion(input_arr, iterations=1):
 
     try:
         # Transfer to GPU if not already there
-        arr_gpu = to_gpu(input_arr)
+        arr_gpu = to_gpu(input_arr, force_gpu=force_gpu)
 
         # Apply binary erosion on GPU
         result_gpu = gpu_ndimage.binary_erosion(arr_gpu, iterations=iterations)
@@ -244,7 +247,7 @@ def gpu_array_operations(data, operations):
         return result
 
 
-def optimize_terrarium_encoding(data):
+def optimize_terrarium_encoding(data, force_gpu=False):
     """
     GPU-accelerated terrarium encoding operations.
 
@@ -253,6 +256,7 @@ def optimize_terrarium_encoding(data):
 
     Args:
         data: Elevation data array
+        force_gpu: If True, always use GPU regardless of array size
 
     Returns:
         Tuple of (red, green, blue) channels as uint8 arrays
@@ -266,7 +270,7 @@ def optimize_terrarium_encoding(data):
 
     try:
         # Transfer to GPU
-        data_gpu = to_gpu(data)
+        data_gpu = to_gpu(data, force_gpu=force_gpu)
 
         data_shifted = data_gpu + 32768.0
         red_gpu = (data_shifted // 256).astype(cp.uint8)
