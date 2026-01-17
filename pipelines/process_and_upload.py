@@ -17,6 +17,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from upload_to_hf import upload_to_hf
+
 
 DEFAULT_SOURCES = [
     "au5a",
@@ -56,7 +58,7 @@ class SourceProcessor:
         result = subprocess.run(cmd, cwd=self.pipelines_dir)
         return result.returncode == 0
 
-    def upload_to_hf(self, source_id: str) -> bool:
+    def upload_to_hf_source(self, source_id: str) -> bool:
         print(f"\n{'=' * 60}")
         print(f"Uploading: {source_id}")
         print(f"{'=' * 60}")
@@ -65,19 +67,12 @@ class SourceProcessor:
             print(f"[DRY RUN] Would upload {source_id} to {self.repo_id}")
             return True
 
-        cmd = [
-            "python",
-            "upload_to_hf.py",
-            source_id,
-            "--repo-id",
-            self.repo_id,
-        ]
-
-        if self.skip_validation:
-            cmd.append("--skip-validation")
-
-        result = subprocess.run(cmd, cwd=self.pipelines_dir)
-        return result.returncode == 0
+        return upload_to_hf(
+            source_id=source_id,
+            repo_id=self.repo_id,
+            tar_store_dir="tar-store",
+            skip_validation=self.skip_validation,
+        )
 
     def process_source(self, source_id: str) -> bool:
         if not self.run_justfile(source_id):
@@ -86,7 +81,7 @@ class SourceProcessor:
 
         print(f"✓ Pipeline completed for {source_id}")
 
-        if not self.upload_to_hf(source_id):
+        if not self.upload_to_hf_source(source_id):
             print(f"✗ Upload failed for {source_id}")
             return False
 
