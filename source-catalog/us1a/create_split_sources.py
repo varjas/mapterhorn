@@ -26,16 +26,16 @@ Examples:
 """
 
 import json
-import math
 import argparse
 from pathlib import Path
 from collections import defaultdict
 import numpy as np
 import shutil
+from grid_utils import deduplicate_files, get_friendly_location, generate_directory_suffix
 
 # Default Configuration
 DEFAULT_LON_BAND_GROUPING = (
-    1  # Must be a divisor of 6 (1, 2, 3, or 6) to align with UTM zones
+    3  # Must be a divisor of 6 (1, 2, 3, or 6) to align with UTM zones
 )
 DEFAULT_LAT_BAND_GROUPING = 2  # Any integer value for latitude grouping
 
@@ -44,158 +44,6 @@ if 6 % DEFAULT_LON_BAND_GROUPING != 0:
     raise ValueError(
         f"DEFAULT_LON_BAND_GROUPING must be a divisor of 6 (1, 2, 3, or 6), got {DEFAULT_LON_BAND_GROUPING}"
     )
-
-
-def generate_directory_suffix(index):
-    """
-    Generate two-letter suffix for directory naming (aa, ab, ..., zz, aaa, ...).
-
-    Args:
-        index: Zero-based index (0 -> 'aa', 1 -> 'ab', ..., 25 -> 'az', 26 -> 'ba', ...)
-
-    Returns:
-        str: Two-letter (or more) suffix for directory naming
-
-    Examples:
-        0 -> 'aa'
-        1 -> 'ab'
-        25 -> 'az'
-        26 -> 'ba'
-        675 -> 'zz'
-        676 -> 'aaa'
-    """
-    suffix = ""
-    remaining = index
-
-    # Calculate length of suffix needed (2 letters for first 676 directories)
-    if remaining < 676:  # 26*26 = 676
-        # Two-letter suffix
-        first_letter = chr(ord('a') + (remaining // 26))
-        second_letter = chr(ord('a') + (remaining % 26))
-        suffix = first_letter + second_letter
-    else:
-        # Three or more letters (for very large datasets)
-        remaining = remaining - 676
-        length = 3
-        while remaining >= 26 ** length:
-            remaining -= 26 ** length
-            length += 1
-
-        # Generate suffix of appropriate length
-        for _ in range(length):
-            suffix = chr(ord('a') + (remaining % 26)) + suffix
-            remaining //= 26
-
-    return suffix
-
-
-# UTM zone boundaries (for Northern hemisphere)
-# UTM zones are 6° wide, centered on meridians
-def get_primary_utm_zone(lon_deg):
-    """
-    Determine primary UTM zone for a given longitude.
-    Returns the EPSG code pattern (e.g., 26918 for UTM 18N)
-
-    UTM zones:
-    Zone 1: 180°W to 174°W (-180° to -174°)
-    Zone 2: 174°W to 168°W (-174° to -168°)
-    Zone N: Each zone is 6° wide
-    """
-    # Calculate UTM zone number (1-60)
-    zone = math.floor((lon_deg + 180) / 6) + 1
-
-    # NAD83 UTM North zones: EPSG:269XX where XX is zone
-    epsg_code = f"EPSG:269{zone:02d}"
-    return epsg_code
-
-
-def get_utm_aligned_lon_group(lon_deg, grouping_size):
-    """
-    Get UTM-aligned longitude group name.
-    Groups are aligned to UTM zone boundaries (which are 6° wide).
-
-    Examples with grouping_size=6:
-    - -156°W is in UTM Zone 5 (boundary at -156°W), returns w156
-    - -75°W is in UTM Zone 18 (boundary at -78°W), returns w078
-
-    Examples with grouping_size=2:
-    - -156°W -> UTM Zone 5 boundary is -156°W, subdivided as: w156, w158, w160
-    - -75°W -> UTM Zone 18 boundary is -78°W, subdivided as: w078, w076, w074
-    """
-    # Calculate which UTM zone this longitude is in
-    zone = math.floor((lon_deg + 180) / 6) + 1
-
-    # Calculate the western boundary of this UTM zone
-    west_boundary = -180 + (zone - 1) * 6
-
-    # Calculate offset within the UTM zone (0 to 5 degrees)
-    offset_in_zone = lon_deg - west_boundary
-
-    # Round down to nearest multiple of grouping_size within the zone
-    group_offset = (offset_in_zone // grouping_size) * grouping_size
-
-    # Calculate the actual group boundary
-    group_boundary = west_boundary + group_offset
-
-    # Return the group boundary as the group name
-    if group_boundary >= 0:
-        return f"e{abs(group_boundary):03d}"
-    else:
-        return f"w{abs(group_boundary):03d}"
-
-
-def parse_lon_band(lon_band):
-    """Parse longitude band string to degrees (e.g., 'w074' -> -74)"""
-    direction = lon_band[0]
-    value = int(lon_band[1:])
-    return -value if direction == "w" else value
-
-
-def parse_lat_band(lat_band):
-    """Parse latitude band string to degrees (e.g., 'n40' -> 40)"""
-    direction = lat_band[0]
-    value = int(lat_band[1:])
-    return value if direction == "n" else -value
-
-
-def group_band_name(band_value, is_longitude, grouping_size):
-    """
-    Generate grouped band name.
-    For grouping_size=2: values -74,-75 -> w074; -76,-77 -> w076
-    band_value should be signed (negative for W/S, positive for E/N)
-    """
-    # For negative values (W/S), we need to round DOWN (more negative)
-    # For positive values (E/N), we round down normally
-    if band_value < 0:
-        # Round down (toward more negative) for western/southern hemispheres
-        grouped_value = -((abs(band_value) // grouping_size) * grouping_size)
-    else:
-        grouped_value = (band_value // grouping_size) * grouping_size
-
-    if is_longitude:
-        if grouped_value >= 0:
-            return f"e{abs(grouped_value):03d}"
-        else:
-            return f"w{abs(grouped_value):03d}"
-    else:
-        if grouped_value >= 0:
-            return f"n{abs(grouped_value):02d}"
-        else:
-            return f"s{abs(grouped_value):02d}"
-
-
-def get_friendly_location(lon_group, lat_group, lon_grouping, lat_grouping):
-    """Create human-readable location description"""
-    lon_deg = abs(int(lon_group[1:]))
-    lat_deg = abs(int(lat_group[1:]))
-    lon_dir = "W" if lon_group.startswith("w") else "E"
-    lat_dir = "N" if lat_group.startswith("n") else "S"
-
-    # Longitude is UTM-zone aligned
-    lon_range = f"{lon_deg}-{lon_deg + lon_grouping}°{lon_dir}"
-    lat_range = f"{lat_deg}-{lat_deg + lat_grouping}°{lat_dir}"
-
-    return f"{lat_range}, {lon_range}"
 
 
 def analyze_distribution(all_directories):
@@ -231,8 +79,8 @@ def analyze_distribution(all_directories):
     # Create standardized histogram for file counts
     print("\n  Histogram (file count):")
     max_bar_width = 40
-    max_file_count_bin = 5000
-    file_count_bins = list(range(0, max_file_count_bin + 1, 500))
+    max_file_count_bin = 1000
+    file_count_bins = list(range(0, max_file_count_bin + 1, 200))
 
     # Create histogram with custom bins
     hist_counts = []
@@ -505,77 +353,7 @@ Examples:
     )
 
     # Group files by lon/lat grid (with grouping and de-duplication)
-    grid_data = defaultdict(
-        lambda: {
-            "files": [],
-            "total_bytes": 0,
-            "crs_codes": set(),
-            "lon_group": None,
-            "lat_group": None,
-        }
-    )
-
-    # First pass: collect all files with their metadata
-    file_metadata = []  # (url, lon_deg, lat_deg, epsg_code, size)
-
-    for epsg_code, epsg_data in crs_data.items():
-        for lon_band, lon_data in epsg_data.get("lon_bands", {}).items():
-            lon_deg = parse_lon_band(lon_band)
-
-            for lat_band, lat_data in lon_data.get("lat_bands", {}).items():
-                lat_deg = parse_lat_band(lat_band)
-
-                for file_url in lat_data["files"]:
-                    file_metadata.append(
-                        {
-                            "url": file_url,
-                            "lon_deg": lon_deg,
-                            "lat_deg": lat_deg,
-                            "epsg_code": epsg_code,
-                            "size": lat_data["bytes"]
-                            / len(lat_data["files"]),  # Approximate per-file size
-                        }
-                    )
-
-    # Second pass: de-duplicate and group
-    # Track which files we've already added to avoid duplicates
-    seen_files = set()
-
-    for file_info in file_metadata:
-        url = file_info["url"]
-        lon_deg = file_info["lon_deg"]
-        lat_deg = file_info["lat_deg"]
-        epsg_code = file_info["epsg_code"]
-
-        # Skip duplicates
-        if url in seen_files:
-            continue
-
-        # Check if this is the primary UTM zone for this longitude
-        primary_epsg = get_primary_utm_zone(lon_deg)
-        if epsg_code != primary_epsg:
-            continue
-
-        # This file should be included - mark as seen
-        seen_files.add(url)
-
-        # Generate grouped names
-        lon_group = get_utm_aligned_lon_group(
-            lon_deg, LON_BAND_GROUPING
-        )  # UTM-aligned longitude
-        lat_group = group_band_name(
-            lat_deg, False, LAT_BAND_GROUPING
-        )  # Standard lat grouping
-
-        # Create grid key
-        grid_key = f"{lon_group}/{lat_group}"
-
-        # Add file to this grid cell
-        grid_data[grid_key]["files"].append(url)
-        grid_data[grid_key]["total_bytes"] += file_info["size"]
-        grid_data[grid_key]["crs_codes"].add(epsg_code)
-        grid_data[grid_key]["lon_group"] = lon_group
-        grid_data[grid_key]["lat_group"] = lat_group
+    grid_data = deduplicate_files(crs_data, LON_BAND_GROUPING, LAT_BAND_GROUPING)
 
     # Create directories
     total_sources = 0
@@ -599,7 +377,7 @@ Examples:
 
         # Generate directory name with sequential suffix
         dir_suffix = generate_directory_suffix(idx)
-        dir_name = f"{base_prefix}{dir_suffix}"
+        dir_name = f"{base_prefix}1{dir_suffix}"
         source_dir = parent_dir / dir_name
 
         if not DRY_RUN:
@@ -638,7 +416,7 @@ Examples:
 
         # Stats
         file_count = len(unique_files)
-        size_gib = data["total_bytes"] / (1024**3)
+        size_gib = data["bytes"] / (1024**3)
         crs_list = sorted(data["crs_codes"])
 
         # Track directory stats
@@ -667,7 +445,7 @@ Examples:
 
         total_sources += 1
         total_files += file_count
-        total_bytes += data["total_bytes"]
+        total_bytes += data["bytes"]
 
     # Summary
     total_gib = total_bytes / (1024**3)
