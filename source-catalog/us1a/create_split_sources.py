@@ -370,13 +370,30 @@ Examples:
     # Sort grid cells deterministically (by lon_group then lat_group)
     sorted_grid_keys = sorted(grid_data.keys())
 
-    for idx, grid_key in enumerate(sorted_grid_keys):
+    # Build lon/lat band to index mappings
+    unique_lon_bands = sorted(set(data["lon_group"] for data in grid_data.values()))
+    unique_lat_bands = sorted(set(data["lat_group"] for data in grid_data.values()), reverse=True)
+
+    lon_to_index = {lon: idx for idx, lon in enumerate(unique_lon_bands)}
+
+    # Build lat_to_index per longitude band
+    lon_lat_to_index = {}
+    for lon_band in unique_lon_bands:
+        lat_bands_in_lon = sorted(
+            set(data["lat_group"] for key, data in grid_data.items() if data["lon_group"] == lon_band),
+            reverse=True
+        )
+        lon_lat_to_index[lon_band] = {lat: idx for idx, lat in enumerate(lat_bands_in_lon)}
+
+    for grid_key in sorted_grid_keys:
         data = grid_data[grid_key]
         lon_group = data["lon_group"]
         lat_group = data["lat_group"]
 
-        # Generate directory name with sequential suffix
-        dir_suffix = generate_directory_suffix(idx)
+        # Generate directory name based on lon/lat band indices
+        lon_index = lon_to_index[lon_group]
+        lat_index = lon_lat_to_index[lon_group][lat_group]
+        dir_suffix = generate_directory_suffix(lon_index, lat_index)
         dir_name = f"{base_prefix}1{dir_suffix}"
         source_dir = parent_dir / dir_name
 
@@ -459,12 +476,12 @@ Examples:
     print(f"Total directories {'analyzed' if DRY_RUN else 'created'}: {total_sources}")
     print(f"Total files: {total_files:,}")
     print(f"Total size: {total_gib:.2f} GiB ({total_tib:.2f} TiB)")
+    print(f"Longitude bands: {len(unique_lon_bands)} (letters a-{chr(ord('a') + len(unique_lon_bands) - 1)})")
+    print(f"Max latitude bands per longitude: {max(len(lon_lat_to_index[lon]) for lon in unique_lon_bands)}")
     if not DRY_RUN:
         print(f"\nSibling directories created in: {parent_dir}/")
-        print(f"Range: {base_prefix}aa to {base_prefix}{generate_directory_suffix(total_sources - 1)}")
     else:
         print(f"\nSibling directories would be created in: {parent_dir}/")
-        print(f"Range: {base_prefix}aa to {base_prefix}{generate_directory_suffix(total_sources - 1)}")
         print(f"(Run without --dry-run to actually create directories)")
 
     # Report mixed CRS directories

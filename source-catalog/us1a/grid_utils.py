@@ -184,32 +184,30 @@ def get_friendly_location(lon_group, lat_group, lon_grouping, lat_grouping):
     return f"{lat_range}, {lon_range}"
 
 
-def generate_directory_suffix(index):
+def generate_directory_suffix(lon_index, lat_index):
     """
-    Generate two-letter suffix for directory naming (aa, ab, ..., zz, aaa, ...).
+    Generate two-letter suffix for directory naming based on lon/lat band indices.
+
+    First letter represents the longitude band (a, b, c, ...)
+    Second letter represents the latitude band within that longitude (a, b, c, ...)
 
     Args:
-        index: Zero-based index (0 -> 'aa', 1 -> 'ab', ..., 25 -> 'az', 26 -> 'ba', ...)
+        lon_index: Zero-based longitude band index (0 -> 'a', 1 -> 'b', ...)
+        lat_index: Zero-based latitude band index within the longitude (0 -> 'a', 1 -> 'b', ...)
 
     Returns:
-        str: Two-letter (or more) suffix for directory naming
+        str: Two-letter suffix (e.g., 'aa', 'ab', 'ba', 'bb', ...)
+
+    Examples:
+        lon_index=0, lat_index=0 -> 'aa'
+        lon_index=0, lat_index=1 -> 'ab'
+        lon_index=1, lat_index=0 -> 'ba'
+        lon_index=25, lat_index=25 -> 'zz'
     """
-    suffix = ""
-    remaining = index
+    if lon_index > 25 or lat_index > 25:
+        raise ValueError(f"Index too large: lon_index={lon_index}, lat_index={lat_index}. Max supported is 25 (26 bands per dimension)")
 
-    if remaining < 676:
-        first_letter = chr(ord('a') + (remaining // 26))
-        second_letter = chr(ord('a') + (remaining % 26))
-        suffix = first_letter + second_letter
-    else:
-        remaining = remaining - 676
-        length = 3
-        while remaining >= 26 ** length:
-            remaining -= 26 ** length
-            length += 1
+    first_letter = chr(ord('a') + lon_index)
+    second_letter = chr(ord('a') + lat_index)
 
-        for _ in range(length):
-            suffix = chr(ord('a') + (remaining % 26)) + suffix
-            remaining //= 26
-
-    return suffix
+    return first_letter + second_letter
