@@ -21,16 +21,52 @@ def parse_lat_band(lat_band):
 
 
 def parse_band_number(band_str):
-    """Parse band string to numeric value for sorting"""
+    """
+    Parse band string to numeric value for sorting.
+
+    Returns values such that sorting in ascending order gives:
+    - Longitude: west to east (w180 -> w001 -> e000 -> e180)
+    - Latitude: south to north (s90 -> s01 -> n00 -> n90)
+    """
     if band_str.startswith('n'):
+        # North latitudes: positive values
         return int(band_str[1:])
-    elif band_str.startswith('w'):
-        return int(band_str[1:])
-    elif band_str.startswith('e'):
-        return -int(band_str[1:])
     elif band_str.startswith('s'):
+        # South latitudes: negative values
         return -int(band_str[1:])
+    elif band_str.startswith('w'):
+        # West longitudes: negative values
+        return -int(band_str[1:])
+    elif band_str.startswith('e'):
+        # East longitudes: positive values
+        return int(band_str[1:])
     return 0
+
+
+def sort_lon_bands(lon_bands):
+    """
+    Sort longitude bands from west to east (increasing values).
+
+    Args:
+        lon_bands: Iterable of longitude band strings (e.g., ['w156', 'w150', 'e000'])
+
+    Returns:
+        List of sorted longitude bands (west to east)
+    """
+    return sorted(lon_bands, key=parse_band_number)
+
+
+def sort_lat_bands(lat_bands):
+    """
+    Sort latitude bands from south to north (increasing values).
+
+    Args:
+        lat_bands: Iterable of latitude band strings (e.g., ['n40', 's10', 'n20'])
+
+    Returns:
+        List of sorted latitude bands (south to north)
+    """
+    return sorted(lat_bands, key=parse_band_number)
 
 
 def get_primary_utm_zone(lon_deg):

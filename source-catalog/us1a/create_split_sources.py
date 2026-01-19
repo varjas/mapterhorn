@@ -31,7 +31,7 @@ from pathlib import Path
 from collections import defaultdict
 import numpy as np
 import shutil
-from grid_utils import deduplicate_files, get_friendly_location, generate_directory_suffix
+from grid_utils import deduplicate_files, get_friendly_location, generate_directory_suffix, sort_lon_bands, sort_lat_bands
 
 # Default Configuration
 DEFAULT_LON_BAND_GROUPING = (
@@ -79,8 +79,8 @@ def analyze_distribution(all_directories):
     # Create standardized histogram for file counts
     print("\n  Histogram (file count):")
     max_bar_width = 40
-    max_file_count_bin = 1000
-    file_count_bins = list(range(0, max_file_count_bin + 1, 200))
+    max_file_count_bin = 3000
+    file_count_bins = list(range(0, max_file_count_bin + 1, 500))
 
     # Create histogram with custom bins
     hist_counts = []
@@ -371,17 +371,16 @@ Examples:
     sorted_grid_keys = sorted(grid_data.keys())
 
     # Build lon/lat band to index mappings
-    unique_lon_bands = sorted(set(data["lon_group"] for data in grid_data.values()))
-    unique_lat_bands = sorted(set(data["lat_group"] for data in grid_data.values()), reverse=True)
+    # Sort west to east (increasing longitude) and south to north (increasing latitude)
+    unique_lon_bands = sort_lon_bands(set(data["lon_group"] for data in grid_data.values()))
 
     lon_to_index = {lon: idx for idx, lon in enumerate(unique_lon_bands)}
 
     # Build lat_to_index per longitude band
     lon_lat_to_index = {}
     for lon_band in unique_lon_bands:
-        lat_bands_in_lon = sorted(
-            set(data["lat_group"] for key, data in grid_data.items() if data["lon_group"] == lon_band),
-            reverse=True
+        lat_bands_in_lon = sort_lat_bands(
+            set(data["lat_group"] for key, data in grid_data.items() if data["lon_group"] == lon_band)
         )
         lon_lat_to_index[lon_band] = {lat: idx for idx, lat in enumerate(lat_bands_in_lon)}
 
