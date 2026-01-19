@@ -62,7 +62,7 @@
 
         const indexInitial = new pmtiles.PMTiles('test-initial/index.pmtiles');
         const indexSplit = new pmtiles.PMTiles('test-split/index.pmtiles');
-        const indexUnified = new pmtiles.PMTiles('test-united/index.pmtiles');
+        const indexUnified = new pmtiles.PMTiles('test-unified/index.pmtiles');
 
         const pmtilesCacheInitial = new Map();
         const pmtilesCacheSplit = new Map();
@@ -112,7 +112,7 @@
 
         maplibregl.addProtocol('mapterhorn-initial', createProtocolHandler(indexInitial, pmtilesCacheInitial, 'test-initial'));
         maplibregl.addProtocol('mapterhorn-split', createProtocolHandler(indexSplit, pmtilesCacheSplit, 'test-split'));
-        maplibregl.addProtocol('mapterhorn-unified', createProtocolHandler(indexUnified, pmtilesCacheUnified, 'test-united'));
+        maplibregl.addProtocol('mapterhorn-unified', createProtocolHandler(indexUnified, pmtilesCacheUnified, 'test-unified'));
 
         const STYLE_CONFIGS = {
             bw: {
