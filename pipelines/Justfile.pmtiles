@@ -1,0 +1,7 @@
+# Process tarball data to pmtiles
+default:
+    uv run python aggregation_covering.py
+    uv run python aggregation_run.py
+    uv run python downsampling_covering.py
+    uv run python downsampling_run.py
+    uv run python create_index.py
