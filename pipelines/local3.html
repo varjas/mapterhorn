@@ -1,0 +1,398 @@
+<html>
+
+<head>
+    <title>Mapterhorn Local 3-Way Compare</title>
+    <meta charset="utf-8" />
+    <script src="https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.js"></script>
+    <link href="https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.css" rel="stylesheet" />
+    <script src="https://unpkg.com/pmtiles@4.3.0/dist/pmtiles.js"></script>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+        }
+
+        .map-container {
+            position: relative;
+            flex: 1;
+            height: 100vh;
+            border-left: 1px solid #000000;
+        }
+
+        .map {
+            height: 100%;
+            width: 100%;
+        }
+
+        .map-label {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 8px 12px;
+            font-size: 14px;
+            font-weight: 600;
+            border-radius: 4px;
+            z-index: 1;
+            pointer-events: none;
+            font-family: sans-serif;
+        }
+
+    </style>
+</head>
+
+<body>
+    <div class="map-container">
+        <div class="map-label">Initial</div>
+        <div id="map-initial" class="map"></div>
+    </div>
+    <div class="map-container">
+        <div class="map-label">Split</div>
+        <div id="map-split" class="map"></div>
+    </div>
+    <div class="map-container">
+        <div class="map-label">Unified</div>
+        <div id="map-unified" class="map"></div>
+    </div>
+
+    <script type="text/javascript">
+        const urlParams = new URLSearchParams(window.location.search);
+        const style = urlParams.get('style') || 'bw';
+
+        const indexInitial = new pmtiles.PMTiles('test-initial/index.pmtiles');
+        const indexSplit = new pmtiles.PMTiles('test-split/index.pmtiles');
+        const indexUnified = new pmtiles.PMTiles('test-united/index.pmtiles');
+
+        const pmtilesCacheInitial = new Map();
+        const pmtilesCacheSplit = new Map();
+        const pmtilesCacheUnified = new Map();
+
+        const createProtocolHandler = (indexPMTiles, pmtilesCache, dirPrefix) => {
+            return async (params, abortController) => {
+                try {
+                    const [z, x, y] = params.url.replace(/^mapterhorn-[^:]+:\/\//, '').split('/').map(Number);
+                    console.log(`[${dirPrefix}] Requesting tile: ${z}/${x}/${y}`);
+
+                    const indexTile = await indexPMTiles.getZxy(z, x, y);
+                    if (indexTile === undefined) {
+                        console.warn(`[${dirPrefix}] Tile ${z}/${x}/${y} not found in index`);
+                        throw new Error(`Tile ${z}/${x}/${y} not found in index`);
+                    }
+
+                    const decoder = new TextDecoder('utf-8');
+                    const filename = decoder.decode(indexTile.data);
+                    const fullPath = `${dirPrefix}/${filename}`;
+                    console.log(`[${dirPrefix}] Tile ${z}/${x}/${y} -> "${fullPath}"`);
+
+                    if (!pmtilesCache.has(fullPath)) {
+                        console.log(`[${dirPrefix}] Creating PMTiles reader for ${fullPath}`);
+                        const pmtilesFile = new pmtiles.PMTiles(fullPath);
+                        pmtilesCache.set(fullPath, pmtilesFile);
+                    }
+                    const pmtilesFile = pmtilesCache.get(fullPath);
+
+                    const tileData = await pmtilesFile.getZxy(z, x, y);
+                    if (!tileData || !tileData.data) {
+                        console.warn(`[${dirPrefix}] Tile ${z}/${x}/${y} not found in ${fullPath}`);
+                        throw new Error(`Tile ${z}/${x}/${y} not found`);
+                    }
+
+                    console.log(`[${dirPrefix}] ✓ Loaded tile ${z}/${x}/${y} (${tileData.data.byteLength} bytes)`);
+
+                    return {
+                        data: tileData.data
+                    };
+                } catch (error) {
+                    console.error(`[${dirPrefix}] Error loading tile:`, error);
+                    throw error;
+                }
+            };
+        };
+
+        maplibregl.addProtocol('mapterhorn-initial', createProtocolHandler(indexInitial, pmtilesCacheInitial, 'test-initial'));
+        maplibregl.addProtocol('mapterhorn-split', createProtocolHandler(indexSplit, pmtilesCacheSplit, 'test-split'));
+        maplibregl.addProtocol('mapterhorn-unified', createProtocolHandler(indexUnified, pmtilesCacheUnified, 'test-united'));
+
+        const STYLE_CONFIGS = {
+            bw: {
+                highlightColor: ['#FFFFFF', '#FFFFFF', '#FFFFFF', '#FFFFFF'],
+                shadowColor: ['#000000', '#000000', '#000000', '#000000']
+            },
+            rgb: {
+                highlightColor: ['#FF4000', '#FFFF00', '#40FF00', '#00FF80'],
+                shadowColor: ['#00BFFF', '#0000FF', '#BF00FF', '#FF0080']
+            }
+        };
+
+        const getHillshadePaint = (styleName) => ({
+            'hillshade-method': 'multidirectional',
+            'hillshade-highlight-color': STYLE_CONFIGS[styleName].highlightColor,
+            'hillshade-shadow-color': STYLE_CONFIGS[styleName].shadowColor,
+            'hillshade-illumination-direction': [270, 315, 0, 45],
+            'hillshade-illumination-altitude': [30, 30, 30, 30],
+            'hillshade-exaggeration': 1,
+            'hillshade-accent-color': '#FFFFFF'
+        });
+
+        const initialPaint = getHillshadePaint(style);
+
+        const hasUserProvidedLocation = window.location.hash && window.location.hash.includes('map=');
+
+        const mapInitial = new maplibregl.Map({
+            container: 'map-initial',
+            hash: 'map',
+            zoom: 4,
+            center: [0, 0],
+            style: {
+                version: 8,
+                sources: {
+                    hillshadeSource: {
+                        type: 'raster-dem',
+                        tiles: ['mapterhorn-initial://{z}/{x}/{y}'],
+                        encoding: 'terrarium',
+                        tileSize: 512,
+                        attribution: '<a href="https://github.com/mapterhorn/mapterhorn">© Mapterhorn</a>'
+                    },
+                },
+                layers: [
+                    {
+                        id: 'background',
+                        type: 'background',
+                        paint: {
+                            'background-color': '#FFFFFF'
+                        }
+                    },
+                    {
+                        id: 'hillshade',
+                        type: 'hillshade',
+                        source: 'hillshadeSource',
+                        paint: initialPaint
+                    },
+                ],
+            },
+        });
+
+        const mapSplit = new maplibregl.Map({
+            container: 'map-split',
+            zoom: 4,
+            center: [0, 0],
+            style: {
+                version: 8,
+                sources: {
+                    hillshadeSource: {
+                        type: 'raster-dem',
+                        tiles: ['mapterhorn-split://{z}/{x}/{y}'],
+                        encoding: 'terrarium',
+                        tileSize: 512,
+                        attribution: '<a href="https://github.com/mapterhorn/mapterhorn">© Mapterhorn</a>'
+                    },
+                },
+                layers: [
+                    {
+                        id: 'background',
+                        type: 'background',
+                        paint: {
+                            'background-color': '#FFFFFF'
+                        }
+                    },
+                    {
+                        id: 'hillshade',
+                        type: 'hillshade',
+                        source: 'hillshadeSource',
+                        paint: initialPaint
+                    },
+                ],
+            },
+        });
+
+        const mapUnified = new maplibregl.Map({
+            container: 'map-unified',
+            zoom: 4,
+            center: [0, 0],
+            style: {
+                version: 8,
+                sources: {
+                    hillshadeSource: {
+                        type: 'raster-dem',
+                        tiles: ['mapterhorn-unified://{z}/{x}/{y}'],
+                        encoding: 'terrarium',
+                        tileSize: 512,
+                        attribution: '<a href="https://github.com/mapterhorn/mapterhorn">© Mapterhorn</a>'
+                    },
+                },
+                layers: [
+                    {
+                        id: 'background',
+                        type: 'background',
+                        paint: {
+                            'background-color': '#FFFFFF'
+                        }
+                    },
+                    {
+                        id: 'hillshade',
+                        type: 'hillshade',
+                        source: 'hillshadeSource',
+                        paint: initialPaint
+                    },
+                ],
+            },
+        });
+
+        const allMaps = [mapInitial, mapSplit, mapUnified];
+        let isSyncing = false;
+
+        function syncMaps(sourceMap) {
+            if (isSyncing) return;
+            isSyncing = true;
+
+            const center = sourceMap.getCenter();
+            const zoom = sourceMap.getZoom();
+            const bearing = sourceMap.getBearing();
+            const pitch = sourceMap.getPitch();
+
+            allMaps.forEach(map => {
+                if (map !== sourceMap) {
+                    map.setCenter(center);
+                    map.setZoom(zoom);
+                    map.setBearing(bearing);
+                    map.setPitch(pitch);
+                }
+            });
+
+            isSyncing = false;
+        }
+
+        allMaps.forEach(map => {
+            map.on('move', () => syncMaps(map));
+            map.on('zoom', () => syncMaps(map));
+            map.on('rotate', () => syncMaps(map));
+            map.on('pitch', () => syncMaps(map));
+        });
+
+        mapInitial.on('load', async () => {
+            console.log('Initial map load event fired!');
+
+            if (hasUserProvidedLocation) {
+                console.log('Location already set via URL hash, skipping auto-zoom');
+                return;
+            }
+
+            try {
+                const header = await indexInitial.getHeader();
+                console.log('Index header:', header);
+
+                if (header.minLon !== undefined && header.maxLon !== undefined) {
+                    const bounds = [header.minLon, header.minLat, header.maxLon, header.maxLat];
+                    console.log('Fitting map to bounds:', bounds);
+
+                    allMaps.forEach(map => {
+                        map.fitBounds([
+                            [bounds[0], bounds[1]],
+                            [bounds[2], bounds[3]]
+                        ], {
+                            padding: 20
+                        });
+                    });
+                } else if (header.centerLon !== undefined && header.centerLat !== undefined) {
+                    console.log('Setting map to center:', header.centerLon, header.centerLat, 'zoom:', header.centerZoom);
+                    allMaps.forEach(map => {
+                        map.setCenter([header.centerLon, header.centerLat]);
+                        if (header.centerZoom) {
+                            map.setZoom(header.centerZoom);
+                        }
+                    });
+                } else {
+                    console.warn('No bounds or center found in header');
+                }
+            } catch (error) {
+                console.error('Failed to read index header:', error);
+            }
+        });
+
+        class StyleToggleControl {
+            constructor(maps) {
+                this._currentStyle = style;
+                this._maps = maps;
+            }
+            onAdd(map) {
+                this._map = map;
+                this._container = document.createElement('div');
+                this._container.className = 'maplibregl-ctrl maplibregl-ctrl-group';
+
+                this._button = document.createElement('button');
+                this._button.className = 'style-toggle-btn';
+                this._updateButtonText();
+
+                this._button.addEventListener('click', () => {
+                    this._toggleStyle();
+                });
+
+                this._container.appendChild(this._button);
+                return this._container;
+            }
+
+            _updateButtonText() {
+                this._button.textContent = this._currentStyle === 'rgb' ? 'RGB' : 'BW';
+            }
+
+            _toggleStyle() {
+                this._currentStyle = this._currentStyle === 'rgb' ? 'bw' : 'rgb';
+
+                const urlParams = new URLSearchParams(window.location.search);
+                urlParams.set('style', this._currentStyle);
+                const newUrl = window.location.pathname + '?' + urlParams.toString() + window.location.hash;
+                window.history.pushState({}, '', newUrl);
+
+                const paintProps = getHillshadePaint(this._currentStyle);
+                this._maps.forEach(map => {
+                    Object.entries(paintProps).forEach(([key, value]) => {
+                        map.setPaintProperty('hillshade', key, value);
+                    });
+                    map.triggerRepaint();
+                });
+
+                this._updateButtonText();
+            }
+
+            onRemove() {
+                this._container.parentNode.removeChild(this._container);
+                this._map = undefined;
+            }
+        }
+
+        class LogoControl {
+            onAdd(map) {
+                this._map = map;
+                this._container = document.createElement('div');
+                this._container.className = 'maplibregl-ctrl';
+                this._container.innerHTML = '<a href="/"><img width=240 src="https://mapterhorn.github.io/.github/brand/screen/mapterhorn-logo.png"/></a>';
+                this._container.style.marginBottom = '-11px';
+                this._container.style.marginLeft = '-5px';
+                return this._container;
+            }
+            onRemove() {
+                this._container.parentNode.removeChild(this._container);
+                this._map = undefined;
+            }
+        }
+        mapInitial.addControl(new LogoControl(), 'bottom-left');
+        mapInitial.addControl(new StyleToggleControl(allMaps), 'bottom-right');
+
+        allMaps.forEach(map => {
+            map.showTileBoundaries = true;
+
+            map.on('error', (e) => {
+                console.error('Map error:', e);
+            });
+
+            map.on('sourcedata', (e) => {
+                if (e.sourceId === 'hillshadeSource' && e.isSourceLoaded) {
+                    console.log('Hillshade source loaded');
+                }
+            });
+        });
+    </script>
+</body>
+
+</html>
