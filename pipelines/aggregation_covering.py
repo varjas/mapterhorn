@@ -1,4 +1,6 @@
 from glob import glob
+import json
+import os
 
 import mercantile
 from ulid import ULID
@@ -49,6 +51,15 @@ def get_intersecting_tiles_dfs(bounds, tile, zoom):
         result += get_intersecting_tiles_dfs(bounds, child, zoom)
     return result
 
+def get_dataset_id(source):
+    dataset_id = source
+    metadata_path = f'source-store/{source}/metadata.json'
+    if os.path.exists(metadata_path):
+        with open(metadata_path) as f:
+            metadata = json.load(f)
+            dataset_id = metadata.get('dataset', source)
+    return dataset_id
+
 def get_macrotile_map():
     macrotile_map = {}
     filepaths = sorted(glob(f'source-store/*/bounds.csv'))
@@ -56,6 +67,7 @@ def get_macrotile_map():
     for filepath in filepaths:
         print(f'reading {filepath}...')
         source = filepath.split('/')[1]
+        dataset_id = get_dataset_id(source)
         with open(filepath) as f:
             f.readline() # skip header
             line = f.readline().strip()
@@ -94,6 +106,7 @@ def get_macrotile_map():
                     macrotile_map[(tile.x, tile.y)]['sources'][source].append({
                         'filename': filename,
                         'maxzoom': maxzoom,
+                        'dataset_id': dataset_id,
                     })
                 line = f.readline().strip()
 
@@ -113,7 +126,7 @@ def add_group_ids(macrotile_map):
         group_id_parts = set({})
         for source in macrotile_map[tile_tuple]['sources']:
             for source_item in macrotile_map[tile_tuple]['sources'][source]:
-                group_id_parts.add((source, source_item['maxzoom']))
+                group_id_parts.add((source_item['dataset_id'], source_item['maxzoom']))
         group_id = tuple(sorted(list(group_id_parts)))
         macrotile_map[tile_tuple]['group_id'] = group_id
 
@@ -154,7 +167,7 @@ def write_aggregation_items(macrotile_map, aggregation_tiles, aggregation_id):
     utils.create_folder(folder)
     for aggregation_tile in aggregation_tiles:
         macrotiles = list(mercantile.children(aggregation_tile, zoom=utils.macrotile_z))
-        lines = ['source,filename,maxzoom\n']
+        lines = ['source,filename,maxzoom,dataset_id\n']
         line_tuples = set({})
         child_z = 0
         for macrotile in macrotiles:
@@ -164,10 +177,11 @@ def write_aggregation_items(macrotile_map, aggregation_tiles, aggregation_id):
             for source in macrotile_map[tile_tuple]['sources']:
                 for source_item in macrotile_map[tile_tuple]['sources'][source]:
                     line_tuples.add((
-                        source, 
-                        source_item['filename'], 
-                        str(source_item['maxzoom']
-                    )))
+                        source,
+                        source_item['filename'],
+                        str(source_item['maxzoom']),
+                        source_item['dataset_id']
+                    ))
                     child_z = max(child_z, source_item['maxzoom'])
         if len(line_tuples) == 0:
             continue
