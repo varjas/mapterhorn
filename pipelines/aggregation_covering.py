@@ -53,7 +53,7 @@ def get_intersecting_tiles_dfs(bounds, tile, zoom):
 
 def get_dataset_id(source):
     dataset_id = source
-    metadata_path = f'source-store/{source}/metadata.json'
+    metadata_path = f'../source-catalog/{source}/metadata.json'
     if os.path.exists(metadata_path):
         with open(metadata_path) as f:
             metadata = json.load(f)

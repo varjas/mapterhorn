@@ -40,10 +40,14 @@ def merge(filepath):
     tiff_filepaths = [f'{tmp_folder}/{i}-3857.tiff' for i in range(num_tiff_files)]
 
     buffer_pixels = None
+    tiff_dataset_ids = []
     with open(metadata_filepath) as f:
         metadata = json.load(f)
         buffer_pixels = metadata['buffer_pixels']
-    
+        tiff_dataset_ids = metadata.get('tiff_dataset_ids', [])
+
+    same_dataset = len(set(tiff_dataset_ids)) == 1 if tiff_dataset_ids else False
+
     tile_size = 512
     overlap = buffer_pixels
     with rasterio.env.Env(GDAL_CACHEMAX=256):
@@ -104,8 +108,8 @@ def merge(filepath):
                             binary_mask = (merged_tile != -9999).astype('int32')
                             eroded = ndimage.binary_erosion(binary_mask)
                             boundary_tile &= eroded.astype(bool)
-                            
-                            if 1 in boundary_tile:
+
+                            if not same_dataset and 1 in boundary_tile:
                                 merged_tile[merged_tile == -9999] = 0
                                 truncate = 4
                                 sigma = int(overlap / truncate) - 1

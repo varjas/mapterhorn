@@ -9,12 +9,11 @@ import utils
 SILENT = True
 
 def create_virtual_raster(tmp_folder, i, source_items):
-    source = source_items[0]['source']
     vrt_filepath = f'{tmp_folder}/{i}.vrt'
     input_file_list_path = f'{tmp_folder}/{i}-file-list.txt'
     with open(input_file_list_path, 'w') as f:
         for source_item in source_items:
-            f.write(f'source-store/{source}/{source_item["filename"]}\n')
+            f.write(f'source-store/{source_item["source"]}/{source_item["filename"]}\n')
     command = f'gdalbuildvrt -overwrite -input_file_list {input_file_list_path} {vrt_filepath}'
     out, err = utils.run_command(command, silent=SILENT)
     if not SILENT:
@@ -90,12 +89,15 @@ def reproject(filepath):
     maxzoom = grouped_source_items[0][0]['maxzoom']
     resolution = get_resolution(maxzoom)
 
+    total_source_files = sum(len(group) for group in grouped_source_items)
+
     buffer_pixels = 0
     buffer_3857_rounded = 0
-    if len(grouped_source_items) > 1:
+    if len(grouped_source_items) > 1 or total_source_files > 1:
         buffer_pixels = int(utils.macrotile_buffer_3857 / resolution)
         buffer_3857_rounded = buffer_pixels * resolution
 
+    tiff_dataset_ids = []
     for i, source_items in enumerate(grouped_source_items):
         vrt_filepath = create_virtual_raster(tmp_folder, i, source_items)
         zoom = maxzoom
@@ -103,12 +105,14 @@ def reproject(filepath):
         create_warp(vrt_filepath, vrt_3857_filepath, zoom, aggregation_tile, buffer_3857_rounded)
         out_filepath = f'{tmp_folder}/{i}-3857.tiff'
         translate(vrt_3857_filepath, out_filepath)
+        tiff_dataset_ids.append(source_items[0]['dataset_id'])
 
         if len(grouped_source_items) > 1 and not contains_nodata_pixels(out_filepath):
             break
-    
+
     metadata = {
         'buffer_pixels': buffer_pixels,
+        'tiff_dataset_ids': tiff_dataset_ids,
     }
     with open(metadata_filepath, 'w') as f:
         json.dump(metadata, f, indent=2)
