@@ -202,13 +202,27 @@ def format_bytes(bytes_val):
 
 def get_friendly_location(lon_group, lat_group, lon_grouping, lat_grouping):
     """Create human-readable location description"""
-    lon_deg = abs(int(lon_group[1:]))
-    lat_deg = abs(int(lat_group[1:]))
+    lon_deg_abs = abs(int(lon_group[1:]))
+    lat_deg_signed = parse_lat_band(lat_group)
     lon_dir = 'W' if lon_group.startswith('w') else 'E'
-    lat_dir = 'N' if lat_group.startswith('n') else 'S'
 
-    lon_range = f'{lon_deg}-{lon_deg + lon_grouping}°{lon_dir}'
-    lat_range = f'{lat_deg}-{lat_deg + lat_grouping}°{lat_dir}'
+    lon_end = lon_deg_abs + lon_grouping
+
+    # Handle latitude range with proper clamping
+    lat_start = max(lat_deg_signed, -90)
+    lat_end = min(lat_deg_signed + lat_grouping, 90)
+
+    lon_range = f'{lon_deg_abs}-{lon_end}°{lon_dir}'
+
+    # Special case: grouping >= 180 spans entire globe
+    if lat_grouping >= 180 or (lat_start == -90 and lat_end == 90):
+        lat_range = '90°S-90°N'
+    elif lat_start < 0 and lat_end > 0:
+        lat_range = f'{abs(lat_start)}°S-{lat_end}°N'
+    elif lat_start < 0:
+        lat_range = f'{abs(lat_end)}-{abs(lat_start)}°S'
+    else:
+        lat_range = f'{lat_start}-{lat_end}°N'
 
     return f'{lat_range}, {lon_range}'
 
