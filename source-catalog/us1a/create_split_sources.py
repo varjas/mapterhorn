@@ -47,6 +47,8 @@ if 6 % DEFAULT_LON_BAND_GROUPING != 0:
         f'DEFAULT_LON_BAND_GROUPING must be a divisor of 6 (1, 2, 3, or 6), got {DEFAULT_LON_BAND_GROUPING}'
     )
 
+def print_divider(character='='):
+    print(character * 80)
 
 def main():
     # Parse command line arguments
@@ -113,9 +115,9 @@ Examples:
         crs_data = json.load(f)
 
     if DRY_RUN:
-        print('\n' + '=' * 60)
+        print_divider()
         print('DRY RUN MODE - No directories will be created')
-        print('=' * 60)
+        print_divider()
 
     print('\nAnalyzing sibling source directories with de-duplication...\n')
     print('Configuration:')
@@ -243,9 +245,9 @@ Examples:
     total_gib = total_bytes / (1024**3)
     total_tib = total_bytes / (1024**4)
 
-    print('=' * 60)
+    print_divider()
     print('SUMMARY')
-    print('=' * 60)
+    print_divider()
     print(f'Mode: {"DRY RUN" if DRY_RUN else "LIVE"}')
     print(f'Grid grouping: {LON_BAND_GROUPING}° lon, {LAT_BAND_GROUPING}° lat')
     print(f'Total directories {"analyzed" if DRY_RUN else "created"}: {total_sources}')
@@ -267,14 +269,14 @@ Examples:
         print(
             f'\nWARNING: {len(mixed_crs_directories)} directories contain multiple CRS:'
         )
-        print('=' * 60)
+        print_divider()
         for item in mixed_crs_directories:
             print(f'  {item["path"]}/')
             print(f'    CRS: {", ".join(item["crs_list"])}')
             print(
                 f'    Files: {item["file_count"]:,}, Size: {item["size_gib"]:.2f} GiB'
             )
-        print('=' * 60)
+        print_divider()
         print('This indicates a potential issue with UTM zone alignment.')
         print('Expected: Each directory should contain only one CRS.')
     else:
