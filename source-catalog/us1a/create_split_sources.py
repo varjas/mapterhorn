@@ -192,24 +192,22 @@ Examples:
             lon_group, lat_group, LON_BAND_GROUPING, LAT_BAND_GROUPING
         )
 
-        # Copy files from base directory
-        metadata_src = script_dir / 'metadata.json'
-        metadata_dst = source_dir / 'metadata.json'
-        if metadata_src.exists() and not DRY_RUN:
-            shutil.copy2(metadata_src, metadata_dst)
+        # Copy files from base directory (skip if same directory)
+        if source_dir != script_dir and not DRY_RUN:
+            metadata_src = script_dir / 'metadata.json'
+            metadata_dst = source_dir / 'metadata.json'
+            if metadata_src.exists():
+                shutil.copy2(metadata_src, metadata_dst)
 
-        justfile_src = script_dir / 'Justfile'
-        justfile_dst = source_dir / 'Justfile'
-        if justfile_src.exists() and not DRY_RUN:
-            if justfile_src.is_symlink():
-                shutil.copy2(justfile_src.resolve(), justfile_dst)
-            else:
+            justfile_src = script_dir / 'Justfile'
+            justfile_dst = source_dir / 'Justfile'
+            if justfile_src.exists():
                 shutil.copy2(justfile_src, justfile_dst)
 
-        license_src = script_dir / 'LICENSE.pdf'
-        license_dst = source_dir / 'LICENSE.pdf'
-        if license_src.exists() and not DRY_RUN:
-            shutil.copy2(license_src, license_dst)
+            license_src = script_dir / 'LICENSE.pdf'
+            license_dst = source_dir / 'LICENSE.pdf'
+            if license_src.exists():
+                shutil.copy2(license_src, license_dst)
 
         file_count = len(unique_files)
         size_gib = data['bytes'] / (1024**3)
