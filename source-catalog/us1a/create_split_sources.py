@@ -40,7 +40,7 @@ from grid_utils import (
 DEFAULT_LON_BAND_GROUPING = (
     6  # Must be a divisor of 6 (1, 2, 3, or 6) to align with UTM zones
 )
-DEFAULT_LAT_BAND_GROUPING = 180  # Any integer value for latitude grouping
+DEFAULT_LAT_BAND_GROUPING = 90  # Any integer value for latitude grouping
 
 if 6 % DEFAULT_LON_BAND_GROUPING != 0:
     raise ValueError(
