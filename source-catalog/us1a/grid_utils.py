@@ -220,7 +220,7 @@ def get_friendly_location(lon_group, lat_group, lon_grouping, lat_grouping):
     return f"{lat_range}, {lon_range}"
 
 
-def generate_directory_suffix(lon_index, lat_index):
+def generate_directory_suffix(lon_index, lat_index = None):
     """
     Generate two-letter suffix for directory naming based on lon/lat band indices.
 
@@ -240,10 +240,12 @@ def generate_directory_suffix(lon_index, lat_index):
         lon_index=1, lat_index=0 -> 'ba'
         lon_index=25, lat_index=25 -> 'zz'
     """
-    if lon_index > 25 or lat_index > 25:
+    if lon_index > 25 or lat_index is not None and lat_index > 25:
         raise ValueError(f"Index too large: lon_index={lon_index}, lat_index={lat_index}. Max supported is 25 (26 bands per dimension)")
 
     first_letter = chr(ord('a') + lon_index)
-    second_letter = chr(ord('a') + lat_index)
+    if lat_index is None:
+        return first_letter
 
+    second_letter = chr(ord('a') + lat_index)
     return first_letter + second_letter

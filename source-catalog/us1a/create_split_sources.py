@@ -28,18 +28,16 @@ Examples:
 import json
 import argparse
 from pathlib import Path
-from collections import defaultdict
 import numpy as np
 import shutil
 from grid_utils import deduplicate_files, get_friendly_location, generate_directory_suffix, sort_lon_bands, sort_lat_bands
 
 # Default Configuration
 DEFAULT_LON_BAND_GROUPING = (
-    3  # Must be a divisor of 6 (1, 2, 3, or 6) to align with UTM zones
+    6  # Must be a divisor of 6 (1, 2, 3, or 6) to align with UTM zones
 )
-DEFAULT_LAT_BAND_GROUPING = 2  # Any integer value for latitude grouping
+DEFAULT_LAT_BAND_GROUPING = 180  # Any integer value for latitude grouping
 
-# Validate default configuration
 if 6 % DEFAULT_LON_BAND_GROUPING != 0:
     raise ValueError(
         f"DEFAULT_LON_BAND_GROUPING must be a divisor of 6 (1, 2, 3, or 6), got {DEFAULT_LON_BAND_GROUPING}"
@@ -389,10 +387,9 @@ Examples:
         lon_group = data["lon_group"]
         lat_group = data["lat_group"]
 
-        # Generate directory name based on lon/lat band indices
+        # Generate directory name based on lon band indices
         lon_index = lon_to_index[lon_group]
-        lat_index = lon_lat_to_index[lon_group][lat_group]
-        dir_suffix = generate_directory_suffix(lon_index, lat_index)
+        dir_suffix = generate_directory_suffix(lon_index)
         dir_name = f"{base_prefix}1{dir_suffix}"
         source_dir = parent_dir / dir_name
 
@@ -486,7 +483,7 @@ Examples:
     # Report mixed CRS directories
     if mixed_crs_directories:
         print(
-            f"\n⚠️  WARNING: {len(mixed_crs_directories)} directories contain multiple CRS:"
+            f"\nWARNING: {len(mixed_crs_directories)} directories contain multiple CRS:"
         )
         print("=" * 60)
         for item in mixed_crs_directories:
@@ -499,13 +496,13 @@ Examples:
         print("This indicates a potential issue with UTM zone alignment.")
         print("Expected: Each directory should contain only one CRS.")
     else:
-        print(f"\n✓ All directories contain single CRS")
+        print("\n✓ All directories contain single CRS")
 
     # Run distribution analysis
     analyze_distribution(all_directories)
 
     # Show largest directories by file count
-    print(f"\nLargest directories by file count:")
+    print("\nLargest directories by file count:")
     print("=" * 60)
     largest_by_files = sorted(
         all_directories, key=lambda x: x["file_count"], reverse=True
@@ -517,7 +514,7 @@ Examples:
         print(f"   CRS: {', '.join(item['crs_list'])}")
 
     # Show largest directories by size
-    print(f"\nLargest directories by size:")
+    print("\nLargest directories by size:")
     print("=" * 60)
     largest_by_size = sorted(
         all_directories, key=lambda x: x["size_gib"], reverse=True
