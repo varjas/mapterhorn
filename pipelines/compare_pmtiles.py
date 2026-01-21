@@ -2,54 +2,150 @@
 """
 Compare multiple pmtiles outputs to analyze differences.
 
-This script extracts sample tiles from pmtiles archives and performs:
+This script samples tiles from pmtiles archives and performs:
 - Pixel-by-pixel difference analysis
 - Statistical comparisons (mean, std, min, max differences)
 - Histogram comparisons
 """
 
 import argparse
-import json
 import numpy as np
 import rasterio
-from rasterio.io import MemoryFile
 from pathlib import Path
 import sys
 from collections import defaultdict
-from pmtiles.reader import Reader
-from pmtiles.tile import zxy_to_tileid
+from pmtiles.reader import Reader, MmapSource
+import random
+import time
 
 
-def get_tile_list(pmtiles_path, zoom_level=None, sample_count=None):
-    """Get list of tiles from pmtiles archive."""
+def sample_tiles_from_pmtiles(pmtiles_path, zoom_level=None, sample_count=50):
+    """
+    Sample tiles from a pmtiles file by trying a range of tile coordinates.
+    """
     with open(pmtiles_path, 'rb') as f:
-        reader = Reader(f)
+        reader = Reader(MmapSource(f))
+        header = reader.header()
 
-        tiles = []
+        min_zoom = header['min_zoom']
+        max_zoom = header['max_zoom']
 
-        # Iterate through all entries
-        for entry in reader.entries():
-            tile_id = entry[0]
-            z, x, y = reader.tileid_to_zxy(tile_id)
+        if zoom_level is not None:
+            if zoom_level < min_zoom or zoom_level > max_zoom:
+                print(f"Warning: zoom {zoom_level} not in range [{min_zoom}, {max_zoom}]")
+                return []
+            target_zoom = zoom_level
+        else:
+            target_zoom = max_zoom
 
-            if zoom_level is None or z == zoom_level:
-                tiles.append((z, x, y))
+        # If bounds are specified in header, use them
+        if header['min_lon_e7'] != 0 or header['max_lon_e7'] != 0:
+            return get_tiles_from_bounds(reader, header, target_zoom, sample_count)
 
-        tiles.sort()
+        # Otherwise, sample by trying tiles in a reasonable range
+        print(f"No bounds in header, sampling tiles at zoom {target_zoom}...")
+        return sample_tiles_by_scanning(reader, target_zoom, sample_count)
 
-        if sample_count and len(tiles) > sample_count:
-            step = max(1, len(tiles) // sample_count)
-            tiles = tiles[::step][:sample_count]
 
-        return tiles
+def get_tiles_from_bounds(reader, header, target_zoom, sample_count):
+    """Get tiles based on geographic bounds in header."""
+    import math
+
+    min_lon = header['min_lon_e7'] / 10000000.0
+    min_lat = header['min_lat_e7'] / 10000000.0
+    max_lon = header['max_lon_e7'] / 10000000.0
+    max_lat = header['max_lat_e7'] / 10000000.0
+
+    def lon_to_tile_x(lon, zoom):
+        return int((lon + 180) / 360 * (2 ** zoom))
+
+    def lat_to_tile_y(lat, zoom):
+        lat_rad = math.radians(lat)
+        return int((1 - math.asinh(math.tan(lat_rad)) / math.pi) / 2 * (2 ** zoom))
+
+    min_x = lon_to_tile_x(min_lon, target_zoom)
+    max_x = lon_to_tile_x(max_lon, target_zoom)
+    min_y = lat_to_tile_y(max_lat, target_zoom)
+    max_y = lat_to_tile_y(min_lat, target_zoom)
+
+    tiles = []
+    for x in range(min_x, max_x + 1):
+        for y in range(min_y, max_y + 1):
+            tile_data = reader.get(target_zoom, x, y)
+            if tile_data:
+                tiles.append((target_zoom, x, y))
+
+    if sample_count and len(tiles) > sample_count:
+        step = max(1, len(tiles) // sample_count)
+        tiles = tiles[::step][:sample_count]
+
+    return tiles
+
+
+def sample_tiles_by_scanning(reader, target_zoom, sample_count):
+    """
+    Sample tiles by scanning through possible tile coordinates.
+    Uses a smart sampling strategy based on zoom level.
+    """
+    max_tiles = 2 ** target_zoom
+    tiles = []
+
+    # For efficiency, we'll sample in a grid pattern
+    # Sample more densely in the center (where tiles are more likely)
+    sample_density = max(1, int(max_tiles / 100))
+
+    attempts = 0
+    max_attempts = sample_count * 100  # Try up to 100x the sample count
+
+    print(f"Scanning with density {sample_density} (checking ~{(max_tiles//sample_density)**2} positions)...")
+
+    for x in range(0, max_tiles, sample_density):
+        for y in range(0, max_tiles, sample_density):
+            if attempts >= max_attempts:
+                break
+
+            attempts += 1
+
+            if attempts % 1000 == 0:
+                print(f"  Checked {attempts} positions, found {len(tiles)} tiles so far...")
+
+            tile_data = reader.get(target_zoom, x, y)
+            if tile_data:
+                tiles.append((target_zoom, x, y))
+                print(f"  Found tile {len(tiles)}/{sample_count}: {target_zoom}/{x}/{y}")
+
+                if len(tiles) >= sample_count:
+                    print(f"Reached target of {sample_count} tiles after {attempts} attempts")
+                    return tiles
+
+        if attempts >= max_attempts:
+            break
+
+    # If we didn't find enough tiles with sparse sampling, try random sampling
+    if len(tiles) < sample_count and len(tiles) < 100:
+        print(f"\nSparse sampling found {len(tiles)} tiles, trying random sampling...")
+        for i in range(max_attempts):
+            if i % 1000 == 0 and i > 0:
+                print(f"  Random sampling: {i} attempts, {len(tiles)} tiles found...")
+
+            x = random.randint(0, max_tiles - 1)
+            y = random.randint(0, max_tiles - 1)
+            tile_data = reader.get(target_zoom, x, y)
+            if tile_data and (target_zoom, x, y) not in tiles:
+                tiles.append((target_zoom, x, y))
+                print(f"  Found tile {len(tiles)}/{sample_count}: {target_zoom}/{x}/{y}")
+                if len(tiles) >= sample_count:
+                    break
+
+    print(f"Completed sampling: found {len(tiles)} tiles\n")
+    return tiles
 
 
 def extract_tile(pmtiles_path, z, x, y):
     """Extract a single tile from pmtiles as bytes."""
     with open(pmtiles_path, 'rb') as f:
-        reader = Reader(f)
-        tile_id = zxy_to_tileid(z, x, y)
-        tile_data = reader.get_tile(tile_id)
+        reader = Reader(MmapSource(f))
+        tile_data = reader.get(z, x, y)
         return tile_data
 
 
@@ -58,10 +154,16 @@ def load_geotiff_as_array(tile_bytes):
     if tile_bytes is None:
         return None
 
-    with MemoryFile(tile_bytes) as memfile:
-        with memfile.open() as src:
-            data = src.read(1)
-            return data
+    from rasterio.io import MemoryFile
+
+    try:
+        with MemoryFile(tile_bytes) as memfile:
+            with memfile.open() as src:
+                data = src.read(1)
+                return data
+    except Exception as e:
+        # Not a GeoTIFF, might be PNG/WEBP/etc
+        return None
 
 
 def compare_tiles(tile1_bytes, tile2_bytes):
@@ -108,34 +210,61 @@ def compare_pmtiles_archives(reference_path, comparison_paths, zoom_level=None, 
         print(f"Compare #{i}: {path}")
     print()
 
-    ref_tiles = get_tile_list(reference_path, zoom_level, sample_count)
+    print("Scanning reference pmtiles for tiles...")
+    ref_tiles = sample_tiles_from_pmtiles(reference_path, zoom_level, sample_count)
     print(f"Found {len(ref_tiles)} tiles to compare")
+
+    if len(ref_tiles) == 0:
+        print("Error: No tiles found in reference pmtiles")
+        return
 
     if zoom_level:
         print(f"Filtering to zoom level: {zoom_level}")
     print()
 
     results = defaultdict(lambda: defaultdict(list))
+    comparison_counts = defaultdict(int)
+    skipped_not_geotiff = 0
+    skipped_missing = 0
+
+    start_time = time.time()
 
     for idx, (z, x, y) in enumerate(ref_tiles):
-        if (idx + 1) % 10 == 0:
-            print(f"Processing tile {idx + 1}/{len(ref_tiles)}...", end='\r')
+        if (idx + 1) % 5 == 0 or idx == 0:
+            comparisons_made = sum(comparison_counts.values())
+            elapsed = time.time() - start_time
+            rate = (idx + 1) / elapsed if elapsed > 0 else 0
+            eta_seconds = (len(ref_tiles) - idx - 1) / rate if rate > 0 else 0
+            eta_str = f"{int(eta_seconds // 60)}m {int(eta_seconds % 60)}s" if eta_seconds > 0 else "calculating..."
+
+            print(f"[{idx + 1}/{len(ref_tiles)}] {z}/{x}/{y} | compared: {comparisons_made}, skipped: {skipped_not_geotiff + skipped_missing} | rate: {rate:.1f} tiles/s | ETA: {eta_str}")
 
         ref_tile_data = extract_tile(reference_path, z, x, y)
         if ref_tile_data is None:
+            skipped_missing += 1
             continue
 
         for cmp_idx, cmp_path in enumerate(comparison_paths):
             cmp_tile_data = extract_tile(cmp_path, z, x, y)
 
             if cmp_tile_data is None:
+                skipped_missing += 1
                 continue
 
             stats = compare_tiles(ref_tile_data, cmp_tile_data)
             if stats:
                 results[cmp_idx][f'{z}/{x}/{y}'] = stats
+                comparison_counts[cmp_idx] += 1
+            else:
+                skipped_not_geotiff += 1
 
-    print(f"\nProcessing complete. Analyzed {len(ref_tiles)} tiles\n")
+    elapsed_total = time.time() - start_time
+    print(f"\nProcessing complete! ({int(elapsed_total)}s total)")
+    print(f"  Total tiles checked: {len(ref_tiles)}")
+    print(f"  Successful comparisons: {sum(comparison_counts.values())}")
+    print(f"  Skipped (not GeoTIFF): {skipped_not_geotiff}")
+    print(f"  Skipped (missing tile): {skipped_missing}")
+    print()
 
     for cmp_idx, tile_stats in results.items():
         print(f"\n{'='*80}")
@@ -143,7 +272,7 @@ def compare_pmtiles_archives(reference_path, comparison_paths, zoom_level=None, 
         print(f"{'='*80}\n")
 
         if not tile_stats:
-            print("No matching tiles found")
+            print("No matching tiles found or no GeoTIFF tiles to compare")
             continue
 
         all_mean_diffs = [s['mean_diff'] for s in tile_stats.values()]
