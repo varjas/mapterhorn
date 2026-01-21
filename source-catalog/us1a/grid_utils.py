@@ -43,30 +43,17 @@ def parse_band_number(band_str):
     return 0
 
 
-def sort_lon_bands(lon_bands):
+def sort_lat_lon_bands(bands):
     """
-    Sort longitude bands from west to east (increasing values).
+    Sort longitude bands from west to east (increasing values), or latitude bands from south to north (increasing values).
 
     Args:
-        lon_bands: Iterable of longitude band strings (e.g., ['w156', 'w150', 'e000'])
+        bands: Iterable of longitude band strings (e.g., ['w156', 'w150', 'e000']), or latitude band strings (e.g., ['n40', 's10', 'n20'])
 
     Returns:
-        List of sorted longitude bands (west to east)
+        List of sorted longitude bands (west to east), or latitude bands (south to north)
     """
-    return sorted(lon_bands, key=parse_band_number)
-
-
-def sort_lat_bands(lat_bands):
-    """
-    Sort latitude bands from south to north (increasing values).
-
-    Args:
-        lat_bands: Iterable of latitude band strings (e.g., ['n40', 's10', 'n20'])
-
-    Returns:
-        List of sorted latitude bands (south to north)
-    """
-    return sorted(lat_bands, key=parse_band_number)
+    return sorted(bands, key=parse_band_number)
 
 
 def get_primary_utm_zone(lon_deg):
