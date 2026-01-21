@@ -10,14 +10,14 @@ def parse_lon_band(lon_band):
     """Parse longitude band string to degrees (e.g., 'w074' -> -74)"""
     direction = lon_band[0]
     value = int(lon_band[1:])
-    return -value if direction == "w" else value
+    return -value if direction == 'w' else value
 
 
 def parse_lat_band(lat_band):
     """Parse latitude band string to degrees (e.g., 'n40' -> 40)"""
     direction = lat_band[0]
     value = int(lat_band[1:])
-    return value if direction == "n" else -value
+    return value if direction == 'n' else -value
 
 
 def parse_band_number(band_str):
@@ -67,7 +67,7 @@ def get_primary_utm_zone(lon_deg):
     Zone N: Each zone is 6° wide
     """
     zone = math.floor((lon_deg + 180) / 6) + 1
-    epsg_code = f"EPSG:269{zone:02d}"
+    epsg_code = f'EPSG:269{zone:02d}'
     return epsg_code
 
 
@@ -91,9 +91,9 @@ def get_utm_aligned_lon_group(lon_deg, grouping_size):
     group_boundary = west_boundary + group_offset
 
     if group_boundary >= 0:
-        return f"e{abs(group_boundary):03d}"
+        return f'e{abs(group_boundary):03d}'
     else:
-        return f"w{abs(group_boundary):03d}"
+        return f'w{abs(group_boundary):03d}'
 
 
 def group_band_name(band_value, is_longitude, grouping_size, offset=0):
@@ -102,21 +102,25 @@ def group_band_name(band_value, is_longitude, grouping_size, offset=0):
     For grouping_size=2: values -74,-75 -> w074; -76,-77 -> w076
     band_value should be signed (negative for W/S, positive for E/N)
     """
-    grouped_value = math.floor((band_value - offset) / grouping_size) * grouping_size + offset
+    grouped_value = (
+        math.floor((band_value - offset) / grouping_size) * grouping_size + offset
+    )
 
     if is_longitude:
         if grouped_value >= 0:
-            return f"e{abs(grouped_value):03d}"
+            return f'e{abs(grouped_value):03d}'
         else:
-            return f"w{abs(grouped_value):03d}"
+            return f'w{abs(grouped_value):03d}'
     else:
         if grouped_value >= 0:
-            return f"n{abs(grouped_value):02d}"
+            return f'n{abs(grouped_value):02d}'
         else:
-            return f"s{abs(grouped_value):02d}"
+            return f's{abs(grouped_value):02d}'
 
 
-def deduplicate_files(crs_data, lon_grouping=1, lat_grouping=1, lon_offset=0, lat_offset=0):
+def deduplicate_files(
+    crs_data, lon_grouping=1, lat_grouping=1, lon_offset=0, lat_offset=0
+):
     """
     Process CRS data to deduplicate files across UTM zones and group by grid cells.
 
@@ -133,29 +137,31 @@ def deduplicate_files(crs_data, lon_grouping=1, lat_grouping=1, lon_offset=0, la
     file_metadata = []
 
     for epsg_code, epsg_data in crs_data.items():
-        for lon_band, lon_data in epsg_data.get("lon_bands", {}).items():
+        for lon_band, lon_data in epsg_data.get('lon_bands', {}).items():
             lon_deg = parse_lon_band(lon_band)
 
-            for lat_band, lat_data in lon_data.get("lat_bands", {}).items():
+            for lat_band, lat_data in lon_data.get('lat_bands', {}).items():
                 lat_deg = parse_lat_band(lat_band)
 
-                for file_url in lat_data["files"]:
-                    file_metadata.append({
-                        "url": file_url,
-                        "lon_deg": lon_deg,
-                        "lat_deg": lat_deg,
-                        "epsg_code": epsg_code,
-                        "size": lat_data["bytes"] / len(lat_data["files"]),
-                    })
+                for file_url in lat_data['files']:
+                    file_metadata.append(
+                        {
+                            'url': file_url,
+                            'lon_deg': lon_deg,
+                            'lat_deg': lat_deg,
+                            'epsg_code': epsg_code,
+                            'size': lat_data['bytes'] / len(lat_data['files']),
+                        }
+                    )
 
     grid_data = {}
     seen_files = set()
 
     for file_info in file_metadata:
-        url = file_info["url"]
-        lon_deg = file_info["lon_deg"]
-        lat_deg = file_info["lat_deg"]
-        epsg_code = file_info["epsg_code"]
+        url = file_info['url']
+        lon_deg = file_info['lon_deg']
+        lat_deg = file_info['lat_deg']
+        epsg_code = file_info['epsg_code']
 
         if url in seen_files:
             continue
@@ -168,46 +174,46 @@ def deduplicate_files(crs_data, lon_grouping=1, lat_grouping=1, lon_offset=0, la
 
         lon_group = group_band_name(lon_deg, True, lon_grouping, lon_offset)
         lat_group = group_band_name(lat_deg, False, lat_grouping, lat_offset)
-        grid_key = f"{lon_group}/{lat_group}"
+        grid_key = f'{lon_group}/{lat_group}'
 
         if grid_key not in grid_data:
             grid_data[grid_key] = {
-                "files": [],
-                "file_count": 0,
-                "bytes": 0,
-                "lon_group": lon_group,
-                "lat_group": lat_group,
-                "crs_codes": set(),
+                'files': [],
+                'file_count': 0,
+                'bytes': 0,
+                'lon_group': lon_group,
+                'lat_group': lat_group,
+                'crs_codes': set(),
             }
 
-        grid_data[grid_key]["files"].append(url)
-        grid_data[grid_key]["file_count"] += 1
-        grid_data[grid_key]["bytes"] += file_info["size"]
-        grid_data[grid_key]["crs_codes"].add(epsg_code)
+        grid_data[grid_key]['files'].append(url)
+        grid_data[grid_key]['file_count'] += 1
+        grid_data[grid_key]['bytes'] += file_info['size']
+        grid_data[grid_key]['crs_codes'].add(epsg_code)
 
     return grid_data
 
 
 def format_bytes(bytes_val):
     """Format bytes as GiB with byte count"""
-    gib = bytes_val / (1024 ** 3)
-    return f"{gib:.2f} GiB ({bytes_val:,} bytes)"
+    gib = bytes_val / (1024**3)
+    return f'{gib:.2f} GiB ({bytes_val:,} bytes)'
 
 
 def get_friendly_location(lon_group, lat_group, lon_grouping, lat_grouping):
     """Create human-readable location description"""
     lon_deg = abs(int(lon_group[1:]))
     lat_deg = abs(int(lat_group[1:]))
-    lon_dir = "W" if lon_group.startswith("w") else "E"
-    lat_dir = "N" if lat_group.startswith("n") else "S"
+    lon_dir = 'W' if lon_group.startswith('w') else 'E'
+    lat_dir = 'N' if lat_group.startswith('n') else 'S'
 
-    lon_range = f"{lon_deg}-{lon_deg + lon_grouping}°{lon_dir}"
-    lat_range = f"{lat_deg}-{lat_deg + lat_grouping}°{lat_dir}"
+    lon_range = f'{lon_deg}-{lon_deg + lon_grouping}°{lon_dir}'
+    lat_range = f'{lat_deg}-{lat_deg + lat_grouping}°{lat_dir}'
 
-    return f"{lat_range}, {lon_range}"
+    return f'{lat_range}, {lon_range}'
 
 
-def generate_directory_suffix(lon_index, lat_index = None):
+def generate_directory_suffix(lon_index, lat_index=None):
     """
     Generate two-letter suffix for directory naming based on lon/lat band indices.
 
@@ -228,7 +234,9 @@ def generate_directory_suffix(lon_index, lat_index = None):
         lon_index=25, lat_index=25 -> 'zz'
     """
     if lon_index > 25 or lat_index is not None and lat_index > 25:
-        raise ValueError(f"Index too large: lon_index={lon_index}, lat_index={lat_index}. Max supported is 25 (26 bands per dimension)")
+        raise ValueError(
+            f'Index too large: lon_index={lon_index}, lat_index={lat_index}. Max supported is 25 (26 bands per dimension)'
+        )
 
     first_letter = chr(ord('a') + lon_index)
     if lat_index is None:
