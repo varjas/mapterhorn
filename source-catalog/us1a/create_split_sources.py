@@ -50,12 +50,26 @@ if 6 % DEFAULT_LON_BAND_GROUPING != 0:
 def print_divider(character='='):
     print(character * 80)
 
+def generate_justfile_content(source_name):
+    return f'''# Source preparation pipeline to be run from mapterhorn/pipelines folder
+
+[no-cd]
+default:
+    uv run python source_download.py {source_name}
+    uv run python source_unzip.py {source_name}
+    uv run python source_verify_crs.py {source_name}
+    uv run python source_slice.py {source_name} 16384
+    uv run python source_to_cog.py {source_name}
+    uv run python source_bounds.py {source_name}
+    uv run python source_polygonize.py {source_name} 32
+    uv run python source_create_tarball.py {source_name}'''
+
 def main():
     # Parse command line arguments
     parser = argparse.ArgumentParser(
         description='Create nested source directories organized by lon/lat grid with de-duplication.',
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
+        epilog='''
 Examples:
   # Normal run with defaults
   python create_nested_sources.py
@@ -68,7 +82,7 @@ Examples:
   
   # Dry run with custom grouping
   python create_nested_sources.py --dry-run --lon 3 --lat 1
-        """,
+        ''',
     )
     parser.add_argument(
         '--dry-run',
@@ -192,22 +206,24 @@ Examples:
             lon_group, lat_group, LON_BAND_GROUPING, LAT_BAND_GROUPING
         )
 
-        # Copy files from base directory (skip if same directory)
+        # Copy/generate files for directory (skip if same directory)
         if source_dir != script_dir and not DRY_RUN:
             metadata_src = script_dir / 'metadata.json'
             metadata_dst = source_dir / 'metadata.json'
             if metadata_src.exists():
                 shutil.copy2(metadata_src, metadata_dst)
 
-            justfile_src = script_dir / 'Justfile'
-            justfile_dst = source_dir / 'Justfile'
-            if justfile_src.exists():
-                shutil.copy2(justfile_src, justfile_dst)
-
             license_src = script_dir / 'LICENSE.pdf'
             license_dst = source_dir / 'LICENSE.pdf'
             if license_src.exists():
                 shutil.copy2(license_src, license_dst)
+
+        # Generate Justfile with hardcoded source name
+        if not DRY_RUN:
+            justfile_dst = source_dir / 'Justfile'
+            justfile_content = generate_justfile_content(dir_name)
+            with open(justfile_dst, 'w') as f:
+                f.write(justfile_content)
 
         file_count = len(unique_files)
         size_gib = data['bytes'] / (1024**3)

@@ -5,7 +5,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 S3_INDEX_URL = 'https://prd-tnm.s3.amazonaws.com/?prefix=StagedProducts/Elevation/1m/Projects/&delimiter=/'
-OUTPUT_FILE = Path(__file__).parent / 'file_list.txt'
+OUTPUT_FILE = Path(__file__).parent / 'full_file_list.txt'
 
 
 def fetch_project_directories():
