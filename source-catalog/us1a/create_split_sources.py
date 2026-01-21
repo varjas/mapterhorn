@@ -47,11 +47,13 @@ if 6 % DEFAULT_LON_BAND_GROUPING != 0:
         f'DEFAULT_LON_BAND_GROUPING must be a divisor of 6 (1, 2, 3, or 6), got {DEFAULT_LON_BAND_GROUPING}'
     )
 
+
 def print_divider(character='='):
     print(character * 80)
 
+
 def generate_justfile_content(source_name):
-    return f'''# Source preparation pipeline to be run from mapterhorn/pipelines folder
+    return f"""# Source preparation pipeline to be run from mapterhorn/pipelines folder
 
 [no-cd]
 default:
@@ -62,14 +64,15 @@ default:
     uv run python source_to_cog.py {source_name}
     uv run python source_bounds.py {source_name}
     uv run python source_polygonize.py {source_name} 32
-    uv run python source_create_tarball.py {source_name}'''
+    uv run python source_create_tarball.py {source_name}"""
+
 
 def main():
     # Parse command line arguments
     parser = argparse.ArgumentParser(
         description='Create nested source directories organized by lon/lat grid with de-duplication.',
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog='''
+        epilog="""
 Examples:
   # Normal run with defaults
   python create_nested_sources.py
@@ -82,7 +85,7 @@ Examples:
   
   # Dry run with custom grouping
   python create_nested_sources.py --dry-run --lon 3 --lat 1
-        ''',
+        """,
     )
     parser.add_argument(
         '--dry-run',
