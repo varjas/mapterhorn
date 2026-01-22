@@ -1,4 +1,5 @@
-## Process to generate source catalog data for us1 dataset
+# us1
+## Process to generate source catalog directories for dataset
 
 ```bash
 uv run python create_file_list.py
