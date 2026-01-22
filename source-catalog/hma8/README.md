@@ -1,3 +1,4 @@
+# hma8
 ## Authentication
 
 Downloads require a free NASA Earthdata Login account.
