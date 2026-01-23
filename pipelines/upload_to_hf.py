@@ -78,12 +78,10 @@ def upload_to_hf(
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Upload tarballs to Hugging Face Hub"
-    )
+    parser = argparse.ArgumentParser(description="Upload tarballs to Hugging Face Hub")
 
     parser.add_argument(
-        "source_id",
+        "--source-id",
         help="Source identifier (e.g., au5a, pmtiles)",
     )
     parser.add_argument(
