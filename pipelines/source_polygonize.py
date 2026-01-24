@@ -28,7 +28,7 @@ def polygonize_source(source, processes):
     for filename in filenames:
         argument_tuples.append((source, filename))
     with Pool(processes) as pool:
-        pool.starmap(polygonize_tif, argument_tuples)
+        pool.starmap(polygonize_tif, argument_tuples, chunksize=1)
 
 def merge_source(source):
     filenames = get_filenames(source)
