@@ -4,9 +4,6 @@
 default:
     uv run python source_download.py au5e
     uv run python source_unzip.py au5e
-    uv run python source_verify_crs.py au5e
-    uv run python source_slice.py au5e 16384
-    uv run python source_to_cog.py au5e
     uv run python source_bounds.py au5e
     uv run python source_polygonize.py au5e 32
     uv run python source_create_tarball.py au5e
