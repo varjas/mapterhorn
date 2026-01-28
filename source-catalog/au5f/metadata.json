@@ -1,0 +1,8 @@
+{
+    "name": "Digital Elevation Model (DEM) of Australia derived from LiDAR 5 Metre Grid",
+    "website": "https://pid.geoscience.gov.au/dataset/ga/89644",
+    "license": "CC BY 4.0",
+    "producer": "Geoscience Australia",
+    "resolution": 5.0,
+    "access_year": 2026
+}
